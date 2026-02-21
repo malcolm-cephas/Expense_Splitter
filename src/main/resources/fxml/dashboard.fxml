@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.malcolm.expensesplitter.controllers.DashboardController"
+            prefHeight="768.0" prefWidth="1024.0" styleClass="background">
+
+    <!-- Sidebar for Groups -->
+    <left>
+        <VBox prefWidth="250.0" spacing="15.0" style="-fx-border-color: transparent lightgray transparent transparent; -fx-border-width: 1;">
+            <padding>
+                <Insets top="20.0" right="10.0" bottom="20.0" left="20.0"/>
+            </padding>
+            <Label text="Groups" styleClass="title-2"/>
+            <ListView fx:id="groupListView" VBox.vgrow="ALWAYS" styleClass="edge-to-edge"/>
+            
+            <VBox spacing="10.0">
+                <Label text="Create New Group" styleClass="title-4"/>
+                <HBox spacing="10.0">
+                    <TextField fx:id="newGroupNameField" promptText="Group Name" HBox.hgrow="ALWAYS"/>
+                    <Button text="Create" onAction="#onCreateGroup" styleClass="accent"/>
+                </HBox>
+            </VBox>
+        </VBox>
+    </left>
+
+    <!-- Main Content Area (Dynamic) -->
+    <center>
+        <VBox fx:id="mainContentArea" alignment="CENTER" spacing="20.0">
+            <padding>
+                <Insets top="40.0" right="40.0" bottom="40.0" left="40.0"/>
+            </padding>
+            <Label text="Select a group from the sidebar" styleClass="text-muted, title-3"/>
+        </VBox>
+    </center>
+
+</BorderPane>

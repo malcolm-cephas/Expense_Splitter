@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.Priority?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.malcolm.expensesplitter.controllers.GroupViewController"
+      spacing="20.0" VBox.vgrow="ALWAYS">
+    
+    <padding>
+        <Insets top="30.0" right="30.0" bottom="30.0" left="30.0"/>
+    </padding>
+
+    <!-- Header -->
+    <HBox alignment="CENTER_LEFT" spacing="20.0">
+        <VBox HBox.hgrow="ALWAYS">
+            <Label fx:id="groupNameLabel" text="Group Name" styleClass="title-1"/>
+            <Label fx:id="groupDescriptionLabel" text="Group description" styleClass="text-muted, title-4"/>
+        </VBox>
+        <Button text="Add Member" onAction="#handleAddMember" styleClass="accent, large"/>
+        <Button text="Add Expense" onAction="#handleAddExpense" styleClass="accent, large"/>
+        <Button text="Settle Up" onAction="#handleSettleUp" styleClass="success, large"/>
+    </HBox>
+
+    <!-- Content -->
+    <HBox spacing="20.0" VBox.vgrow="ALWAYS">
+        <!-- Expenses List -->
+        <VBox HBox.hgrow="ALWAYS" spacing="10.0">
+            <Label text="Recent Expenses" styleClass="title-3"/>
+            <ListView fx:id="expenseListView" VBox.vgrow="ALWAYS">
+                <contextMenu>
+                    <javafx.scene.control.ContextMenu>
+                        <items>
+                            <javafx.scene.control.MenuItem text="Edit Expense" onAction="#handleEditExpense"/>
+                            <javafx.scene.control.MenuItem text="Delete Expense" onAction="#handleDeleteExpense"/>
+                        </items>
+                    </javafx.scene.control.ContextMenu>
+                </contextMenu>
+            </ListView>
+        </VBox>
+        
+        <!-- Balances / Details Pane -->
+        <VBox prefWidth="300.0" spacing="10.0" style="-fx-background-color: -color-bg-subtle; -fx-background-radius: 8;">
+            <padding>
+                <Insets top="15.0" right="15.0" bottom="15.0" left="15.0"/>
+            </padding>
+            <Label text="Members" styleClass="title-3"/>
+            <ListView fx:id="memberListView" VBox.vgrow="ALWAYS">
+                <contextMenu>
+                    <javafx.scene.control.ContextMenu>
+                        <items>
+                            <javafx.scene.control.MenuItem text="Edit Name" onAction="#handleEditMember"/>
+                            <javafx.scene.control.MenuItem text="Remove from Group" onAction="#handleRemoveMember"/>
+                        </items>
+                    </javafx.scene.control.ContextMenu>
+                </contextMenu>
+            </ListView>
+        </VBox>
+    </HBox>
+</VBox>

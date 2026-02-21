@@ -1,0 +1,46 @@
+.root {
+    -fx-font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+/* Custom background for main areas to match modern web apps */
+.background {
+    -fx-background-color: -color-bg-default;
+}
+
+/* Ensure list items have padding */
+.list-cell {
+    -fx-padding: 10px 15px;
+}
+
+/* Make headers pop */
+.title-1 {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+}
+
+.title-2 {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+
+.title-3 {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+
+.title-4 {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+/* Utility classes */
+.text-muted {
+    -fx-text-fill: -color-fg-muted;
+}
+
+/* Rounded cards */
+.card {
+    -fx-background-color: -color-bg-subtle;
+    -fx-background-radius: 8px;
+    -fx-padding: 15px;
+}
