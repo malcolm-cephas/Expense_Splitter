@@ -64,6 +64,40 @@ public class DashboardController {
 
     @FXML
     public void initialize() {
+        // Cleanup legacy test user if it still exists
+        try {
+            userRepository.findByEmail("test@example.com").ifPresent(testUser -> {
+                // 1. Delete all splits where this user is involved
+                expenseSplitRepository.deleteAll(expenseSplitRepository.findByUserId(testUser.getId()));
+
+                // 2. Clear user from all groups (membership and creation)
+                for (Group group : groupRepository.findAll()) {
+                    boolean modified = false;
+                    if (group.getMembers().remove(testUser)) {
+                        modified = true;
+                    }
+                    if (group.getCreatedBy() != null && group.getCreatedBy().equals(testUser)) {
+                        group.setCreatedBy(null);
+                        modified = true;
+                    }
+                    if (modified) {
+                        groupRepository.save(group);
+                    }
+                }
+
+                // 3. Delete expenses where they were the payer
+                List<com.malcolm.expensesplitter.models.Expense> userPaidExpenses = expenseRepository.findAll().stream()
+                        .filter(e -> e.getPaidBy() != null && e.getPaidBy().equals(testUser))
+                        .toList();
+                expenseRepository.deleteAll(userPaidExpenses);
+
+                userRepository.delete(testUser);
+                userRepository.flush();
+            });
+        } catch (Exception e) {
+            System.err.println("Note: Cleanup of test user skipped or failed: " + e.getMessage());
+        }
+
         // Fetch first user or prompt to create one
         Optional<com.malcolm.expensesplitter.models.User> firstUser = userRepository.findAll().stream().findFirst();
         if (firstUser.isPresent()) {

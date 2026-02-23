@@ -52,16 +52,31 @@
                             </ScrollPane>
                         </VBox>
                     </Tab>
-                    <Tab text="Exact Amount ($)">
-                        <VBox alignment="CENTER" spacing="10">
-                            <padding><Insets top="20"/></padding>
-                            <Label text="Specify exact amounts for each person (Coming soon)." styleClass="text-muted"/>
+                    <Tab text="Exact Amount (₹)">
+                        <VBox alignment="TOP_LEFT" spacing="10">
+                            <padding><Insets top="20" bottom="20"/></padding>
+                            <Label text="Enter exact amount for each member:" styleClass="title-4"/>
+                            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                <VBox fx:id="exactAmountContainer" spacing="5"/>
+                            </ScrollPane>
                         </VBox>
                     </Tab>
                     <Tab text="Percentages (%)">
-                        <VBox alignment="CENTER" spacing="10">
-                            <padding><Insets top="20"/></padding>
-                            <Label text="Specify percentages for each person (Coming soon)." styleClass="text-muted"/>
+                        <VBox alignment="TOP_LEFT" spacing="10">
+                            <padding><Insets top="20" bottom="20"/></padding>
+                            <Label text="Enter percentage for each member (Total 100%):" styleClass="title-4"/>
+                            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                <VBox fx:id="percentageContainer" spacing="5"/>
+                            </ScrollPane>
+                        </VBox>
+                    </Tab>
+                    <Tab text="Shares (x)">
+                        <VBox alignment="TOP_LEFT" spacing="10">
+                            <padding><Insets top="20" bottom="20"/></padding>
+                            <Label text="Enter number of shares for each member:" styleClass="title-4"/>
+                            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                <VBox fx:id="sharesContainer" spacing="5"/>
+                            </ScrollPane>
                         </VBox>
                     </Tab>
                 </tabs>

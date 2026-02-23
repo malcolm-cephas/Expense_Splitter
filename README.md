@@ -41,8 +41,8 @@
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/yourusername/expense-splitter-pro.git
-   cd expense-splitter-pro/expense-splitter
+   git clone https://github.com/malcolm-cephas/Expense_Splitter.git
+   cd Expense_Splitter/expense-splitter
    ```
 
 2. **Build the Project**

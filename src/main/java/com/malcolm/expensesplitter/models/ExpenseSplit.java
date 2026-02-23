@@ -23,6 +23,9 @@ public class ExpenseSplit {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal owedAmount;
 
+    @Column(nullable = true, precision = 12, scale = 2)
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private boolean isPaid = false;
 
@@ -66,11 +69,27 @@ public class ExpenseSplit {
         this.owedAmount = owedAmount;
     }
 
+    public BigDecimal getPaidAmount() {
+        return paidAmount != null ? paidAmount : BigDecimal.ZERO;
+    }
+
+    public void setPaidAmount(BigDecimal paidAmount) {
+        this.paidAmount = paidAmount != null ? paidAmount : BigDecimal.ZERO;
+        if (this.owedAmount != null) {
+            this.isPaid = this.paidAmount.compareTo(this.owedAmount) >= 0;
+        }
+    }
+
     public boolean isPaid() {
         return isPaid;
     }
 
     public void setPaid(boolean paid) {
         isPaid = paid;
+        if (isPaid && owedAmount != null) {
+            this.paidAmount = owedAmount;
+        } else if (!isPaid) {
+            this.paidAmount = BigDecimal.ZERO;
+        }
     }
 }

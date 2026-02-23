@@ -12,9 +12,13 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import com.malcolm.expensesplitter.models.Expense;
 import com.malcolm.expensesplitter.models.ExpenseSplit;
+import com.malcolm.expensesplitter.models.SplitType;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -42,6 +46,15 @@ public class AddExpenseController {
 
     @FXML
     private javafx.scene.layout.VBox membersCheckboxContainer;
+
+    @FXML
+    private javafx.scene.layout.VBox exactAmountContainer;
+
+    @FXML
+    private javafx.scene.layout.VBox percentageContainer;
+
+    @FXML
+    private javafx.scene.layout.VBox sharesContainer;
 
     @FXML
     private Button saveAndNewButton;
@@ -95,13 +108,36 @@ public class AddExpenseController {
 
         if (membersCheckboxContainer != null) {
             membersCheckboxContainer.getChildren().clear();
+            exactAmountContainer.getChildren().clear();
+            percentageContainer.getChildren().clear();
+            sharesContainer.getChildren().clear();
+
             for (User member : group.getMembers()) {
-                CheckBox cb = new CheckBox(member.getName() + " (" + member.getEmail() + ")");
+                // Equal Tab
+                CheckBox cb = new CheckBox(member.getName());
                 cb.setUserData(member.getId());
-                cb.setSelected(true); // default to all selected
+                cb.setSelected(true);
                 membersCheckboxContainer.getChildren().add(cb);
+
+                // Exact Tab
+                exactAmountContainer.getChildren().add(createInputRow(member, "0"));
+                // Percentage Tab
+                percentageContainer.getChildren().add(createInputRow(member, "0"));
+                // Shares Tab
+                sharesContainer.getChildren().add(createInputRow(member, "1"));
             }
         }
+    }
+
+    private javafx.scene.layout.HBox createInputRow(User user, String defaultValue) {
+        javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(10);
+        Label label = new Label(user.getName());
+        label.setPrefWidth(150);
+        TextField field = new TextField(defaultValue);
+        field.setUserData(user.getId());
+        field.setPrefWidth(100);
+        row.getChildren().addAll(label, field);
+        return row;
     }
 
     public void setExpenseToEdit(Expense expense) {
@@ -118,21 +154,34 @@ public class AddExpenseController {
                 saveAndNewButton.setManaged(false);
             }
 
-            // Pre-check involved members
-            if (membersCheckboxContainer != null) {
-                Set<UUID> involvedIds = new HashSet<>();
-                for (ExpenseSplit split : expense.getSplits()) {
-                    involvedIds.add(split.getUser().getId());
-                }
-                for (javafx.scene.Node node : membersCheckboxContainer.getChildren()) {
-                    if (node instanceof CheckBox cb) {
-                        UUID memberId = (UUID) cb.getUserData();
-                        cb.setSelected(involvedIds.contains(memberId));
+            // Select the correct tab and populate values
+            if (expense.getSplitType() == SplitType.EQUAL) {
+                splitTypeTabPane.getSelectionModel().select(0);
+                if (membersCheckboxContainer != null) {
+                    Set<UUID> involvedIds = new HashSet<>();
+                    for (ExpenseSplit split : expense.getSplits()) {
+                        involvedIds.add(split.getUser().getId());
+                    }
+                    for (javafx.scene.Node node : membersCheckboxContainer.getChildren()) {
+                        if (node instanceof CheckBox cb) {
+                            cb.setSelected(involvedIds.contains((UUID) cb.getUserData()));
+                        }
                     }
                 }
+            } else if (expense.getSplitType() == SplitType.EXACT) {
+                splitTypeTabPane.getSelectionModel().select(1);
+                populateInputContainer(exactAmountContainer, expense);
+            } else if (expense.getSplitType() == SplitType.PERCENTAGE) {
+                splitTypeTabPane.getSelectionModel().select(2);
+                populateInputContainer(percentageContainer, expense);
+            } else if (expense.getSplitType() == SplitType.SHARES) {
+                splitTypeTabPane.getSelectionModel().select(3);
+                populateInputContainer(sharesContainer, expense);
             }
         } else {
-            // Reset fields for fresh ADD mode
+            // Reset for fresh ADD mode
+            if (splitTypeTabPane != null)
+                splitTypeTabPane.getSelectionModel().select(0);
             descriptionField.clear();
             amountField.clear();
             if (payerComboBox.getItems() != null && !payerComboBox.getItems().isEmpty()) {
@@ -148,9 +197,27 @@ public class AddExpenseController {
             // Re-select all members by default
             if (membersCheckboxContainer != null) {
                 for (javafx.scene.Node node : membersCheckboxContainer.getChildren()) {
-                    if (node instanceof CheckBox cb) {
+                    if (node instanceof CheckBox cb)
                         cb.setSelected(true);
-                    }
+                }
+            }
+        }
+    }
+
+    private void populateInputContainer(javafx.scene.layout.VBox container, Expense expense) {
+        Map<UUID, BigDecimal> currentSplits = new HashMap<>();
+        for (ExpenseSplit split : expense.getSplits()) {
+            currentSplits.put(split.getUser().getId(), split.getOwedAmount());
+        }
+
+        for (javafx.scene.Node node : container.getChildren()) {
+            if (node instanceof javafx.scene.layout.HBox row) {
+                TextField tf = (TextField) row.getChildren().get(1);
+                UUID userId = (UUID) tf.getUserData();
+                if (currentSplits.containsKey(userId)) {
+                    tf.setText(currentSplits.get(userId).setScale(0, RoundingMode.CEILING).toString());
+                } else {
+                    tf.setText("0");
                 }
             }
         }
@@ -182,25 +249,53 @@ public class AddExpenseController {
             BigDecimal amount = new BigDecimal(amountField.getText());
             String description = descriptionField.getText();
 
-            // Collect selected members
-            Set<UUID> involvedMembers = new HashSet<>();
-            if (membersCheckboxContainer != null) {
+            String paymentMode = paymentModeComboBox.getValue();
+            SplitType splitType = SplitType.EQUAL;
+            Map<UUID, BigDecimal> splitInputs = new java.util.HashMap<>();
+
+            Tab selectedTab = splitTypeTabPane.getSelectionModel().getSelectedItem();
+            if (selectedTab.getText().contains("Equal")) {
+                splitType = SplitType.EQUAL;
                 for (javafx.scene.Node node : membersCheckboxContainer.getChildren()) {
                     if (node instanceof CheckBox cb && cb.isSelected()) {
-                        involvedMembers.add((UUID) cb.getUserData());
+                        splitInputs.put((UUID) cb.getUserData(), BigDecimal.ZERO);
+                    }
+                }
+            } else if (selectedTab.getText().contains("Exact")) {
+                splitType = SplitType.EXACT;
+                for (javafx.scene.Node node : exactAmountContainer.getChildren()) {
+                    if (node instanceof javafx.scene.layout.HBox row) {
+                        TextField tf = (TextField) row.getChildren().get(1);
+                        BigDecimal val = new BigDecimal(tf.getText().isEmpty() ? "0" : tf.getText());
+                        splitInputs.put((UUID) tf.getUserData(), val);
+                    }
+                }
+            } else if (selectedTab.getText().contains("Percentages")) {
+                splitType = SplitType.PERCENTAGE;
+                for (javafx.scene.Node node : percentageContainer.getChildren()) {
+                    if (node instanceof javafx.scene.layout.HBox row) {
+                        TextField tf = (TextField) row.getChildren().get(1);
+                        BigDecimal val = new BigDecimal(tf.getText().isEmpty() ? "0" : tf.getText());
+                        splitInputs.put((UUID) tf.getUserData(), val);
+                    }
+                }
+            } else {
+                splitType = SplitType.SHARES;
+                for (javafx.scene.Node node : sharesContainer.getChildren()) {
+                    if (node instanceof javafx.scene.layout.HBox row) {
+                        TextField tf = (TextField) row.getChildren().get(1);
+                        BigDecimal val = new BigDecimal(tf.getText().isEmpty() ? "0" : tf.getText());
+                        splitInputs.put((UUID) tf.getUserData(), val);
                     }
                 }
             }
 
-            String paymentMode = paymentModeComboBox.getValue();
-
             if (expenseToEdit != null) {
-                expenseService.updateEqualExpense(expenseToEdit.getId(), currentGroup.getId(), paidBy.getId(), amount,
-                        description, paymentMode,
-                        involvedMembers);
+                expenseService.updateExpense(expenseToEdit.getId(), currentGroup.getId(), paidBy.getId(), amount,
+                        description, paymentMode, splitType, splitInputs);
             } else {
-                expenseService.addEqualExpense(currentGroup.getId(), paidBy.getId(), amount, description, paymentMode,
-                        involvedMembers);
+                expenseService.addExpense(currentGroup.getId(), paidBy.getId(), amount, description, paymentMode,
+                        splitType, splitInputs);
             }
 
             saveClicked = true;
@@ -231,6 +326,43 @@ public class AddExpenseController {
         }
         if (payerComboBox.getValue() == null) {
             errorMessage += "No valid payer selected!\n";
+        }
+
+        // Tab specific validation
+        Tab selectedTab = splitTypeTabPane.getSelectionModel().getSelectedItem();
+        if (selectedTab.getText().contains("Exact")) {
+            BigDecimal total = BigDecimal.ZERO;
+            for (javafx.scene.Node node : exactAmountContainer.getChildren()) {
+                if (node instanceof javafx.scene.layout.HBox row) {
+                    TextField tf = (TextField) row.getChildren().get(1);
+                    try {
+                        total = total.add(new BigDecimal(tf.getText().isEmpty() ? "0" : tf.getText()));
+                    } catch (NumberFormatException e) {
+                        errorMessage += "Invalid amount for one of the members.\n";
+                        break;
+                    }
+                }
+            }
+            BigDecimal expected = new BigDecimal(amountField.getText());
+            if (total.compareTo(expected) != 0) {
+                errorMessage += "Total exact amounts (" + total + ") must equal expense amount (" + expected + ")!\n";
+            }
+        } else if (selectedTab.getText().contains("Percentages")) {
+            BigDecimal totalPercent = BigDecimal.ZERO;
+            for (javafx.scene.Node node : percentageContainer.getChildren()) {
+                if (node instanceof javafx.scene.layout.HBox row) {
+                    TextField tf = (TextField) row.getChildren().get(1);
+                    try {
+                        totalPercent = totalPercent.add(new BigDecimal(tf.getText().isEmpty() ? "0" : tf.getText()));
+                    } catch (NumberFormatException e) {
+                        errorMessage += "Invalid percentage for one of the members.\n";
+                        break;
+                    }
+                }
+            }
+            if (totalPercent.compareTo(new BigDecimal("100")) != 0) {
+                errorMessage += "Total percentage must be exactly 100% (currently " + totalPercent + "%)!\n";
+            }
         }
 
         if (errorMessage.length() == 0) {

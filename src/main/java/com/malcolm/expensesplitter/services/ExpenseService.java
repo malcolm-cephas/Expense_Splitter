@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -92,6 +93,95 @@ public class ExpenseService {
         return expenseRepository.save(expense);
     }
 
+    public Expense addExpense(UUID groupId, UUID paidById, BigDecimal amount, String description,
+            String paymentMode, SplitType splitType, Map<UUID, BigDecimal> splitInputs) {
+        Group group = groupRepository.findById(groupId).orElseThrow();
+        User paidBy = userRepository.findById(paidById).orElseThrow();
+
+        Expense expense = new Expense(group, paidBy, amount, description, splitType);
+        expense.setPaymentMode(paymentMode);
+
+        calculateAndAddSplits(expense, splitType, splitInputs, group.getMembers());
+
+        return expenseRepository.save(expense);
+    }
+
+    public Expense updateExpense(UUID expenseId, UUID groupId, UUID paidById, BigDecimal amount,
+            String description, String paymentMode, SplitType splitType, Map<UUID, BigDecimal> splitInputs) {
+        Expense expense = expenseRepository.findById(expenseId).orElseThrow();
+        Group group = groupRepository.findById(groupId).orElseThrow();
+        User paidBy = userRepository.findById(paidById).orElseThrow();
+
+        expense.setPaidBy(paidBy);
+        expense.setAmount(amount);
+        expense.setDescription(description);
+        expense.setPaymentMode(paymentMode);
+        expense.setSplitType(splitType);
+
+        // Clear existing splits
+        expense.getSplits().clear();
+
+        calculateAndAddSplits(expense, splitType, splitInputs, group.getMembers());
+
+        return expenseRepository.save(expense);
+    }
+
+    private void calculateAndAddSplits(Expense expense, SplitType splitType, Map<UUID, BigDecimal> splitInputs,
+            Set<User> allMembers) {
+        BigDecimal totalAmount = expense.getAmount();
+
+        if (splitType == SplitType.EQUAL) {
+            Set<User> involved = allMembers.stream()
+                    .filter(m -> splitInputs.containsKey(m.getId()))
+                    .collect(Collectors.toSet());
+
+            if (involved.isEmpty())
+                throw new IllegalStateException("No members selected for equal split.");
+
+            BigDecimal splitAmount = totalAmount.divide(new BigDecimal(involved.size()), 0, RoundingMode.CEILING);
+            for (User member : involved) {
+                expense.addSplit(new ExpenseSplit(member, splitAmount));
+            }
+        } else if (splitType == SplitType.EXACT) {
+            for (User member : allMembers) {
+                BigDecimal share = splitInputs.getOrDefault(member.getId(), BigDecimal.ZERO).setScale(0,
+                        RoundingMode.CEILING);
+                if (share.compareTo(BigDecimal.ZERO) > 0) {
+                    expense.addSplit(new ExpenseSplit(member, share));
+                }
+            }
+        } else if (splitType == SplitType.PERCENTAGE) {
+            for (User member : allMembers) {
+                BigDecimal percent = splitInputs.getOrDefault(member.getId(), BigDecimal.ZERO);
+                if (percent.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal share = totalAmount.multiply(percent).divide(new BigDecimal("100"), 0,
+                            RoundingMode.CEILING);
+                    expense.addSplit(new ExpenseSplit(member, share));
+                }
+            }
+        } else if (splitType == SplitType.SHARES) {
+            BigDecimal totalShares = splitInputs.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (totalShares.compareTo(BigDecimal.ZERO) <= 0)
+                throw new IllegalStateException("Total shares must be greater than zero.");
+
+            BigDecimal shareValue = totalAmount.divide(totalShares, 5, RoundingMode.HALF_UP);
+            for (User member : allMembers) {
+                BigDecimal memberShares = splitInputs.getOrDefault(member.getId(), BigDecimal.ZERO);
+                if (memberShares.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal share = shareValue.multiply(memberShares).setScale(0, RoundingMode.CEILING);
+                    expense.addSplit(new ExpenseSplit(member, share));
+                }
+            }
+        }
+
+        // Automatically mark the payer's split as settled/paid
+        for (ExpenseSplit split : expense.getSplits()) {
+            if (split.getUser().getId().equals(expense.getPaidBy().getId())) {
+                split.setPaid(true);
+            }
+        }
+    }
+
     public List<Expense> getGroupExpenses(UUID groupId) {
         return expenseRepository.findByGroupIdOrderByCreatedAtDesc(groupId);
     }
@@ -105,6 +195,17 @@ public class ExpenseService {
         for (ExpenseSplit split : expense.getSplits()) {
             if (split.getId().equals(splitId)) {
                 split.setPaid(isPaid);
+                break;
+            }
+        }
+        expenseRepository.save(expense);
+    }
+
+    public void updateSplitPayment(UUID expenseId, UUID splitId, BigDecimal paidAmount) {
+        Expense expense = expenseRepository.findById(expenseId).orElseThrow();
+        for (ExpenseSplit split : expense.getSplits()) {
+            if (split.getId().equals(splitId)) {
+                split.setPaidAmount(paidAmount);
                 break;
             }
         }

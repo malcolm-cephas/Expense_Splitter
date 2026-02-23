@@ -35,14 +35,14 @@ public class SettlementService {
             UUID paidBy = expense.getPaidBy().getId();
 
             for (ExpenseSplit split : expense.getSplits()) {
-                if (!split.isPaid()) {
+                BigDecimal remaining = split.getOwedAmount().subtract(split.getPaidAmount());
+                if (remaining.compareTo(BigDecimal.ZERO) > 0) {
                     UUID debtorId = split.getUser().getId();
-                    BigDecimal amount = split.getOwedAmount();
 
-                    // Debtor owes this amount
-                    balances.put(debtorId, balances.getOrDefault(debtorId, BigDecimal.ZERO).subtract(amount));
-                    // Payer is owed this amount
-                    balances.put(paidBy, balances.getOrDefault(paidBy, BigDecimal.ZERO).add(amount));
+                    // Debtor owes this remaining amount
+                    balances.put(debtorId, balances.getOrDefault(debtorId, BigDecimal.ZERO).subtract(remaining));
+                    // Payer is still owed this remaining amount
+                    balances.put(paidBy, balances.getOrDefault(paidBy, BigDecimal.ZERO).add(remaining));
                 }
             }
         }

@@ -5,12 +5,17 @@ import com.malcolm.expensesplitter.models.Expense;
 import com.malcolm.expensesplitter.models.ExpenseSplit;
 import com.malcolm.expensesplitter.services.ExpenseService;
 import javafx.fxml.FXML;
+import javafx.geometry.Pos;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Controller
 public class ExpenseDetailsController {
@@ -47,24 +52,51 @@ public class ExpenseDetailsController {
     private void loadSplits() {
         splitsContainer.getChildren().clear();
         for (ExpenseSplit split : currentExpense.getSplits()) {
-            CheckBox cb = new CheckBox(
-                    split.getUser().getName() + " owes " + appConfig.getCurrencySymbol() + split.getOwedAmount());
+            HBox row = new HBox(15);
+            row.setAlignment(Pos.CENTER_LEFT);
+
+            Label infoLabel = new Label(
+                    split.getUser().getName() + " owes " + appConfig.getCurrencySymbol()
+                            + split.getOwedAmount().setScale(0, RoundingMode.CEILING));
+            infoLabel.setPrefWidth(250);
+
+            TextField paidField = new TextField(split.getPaidAmount().setScale(0, RoundingMode.CEILING).toString());
+            paidField.setPrefWidth(100);
+            paidField.setPromptText("Paid");
+
+            CheckBox cb = new CheckBox("Settled");
             cb.setSelected(split.isPaid());
 
-            // Allow members to mark themselves as paid, EXCEPT the original payer (who paid
-            // the full thing)
+            // Disable for original payer as they are already settled
             if (split.getUser().getId().equals(currentExpense.getPaidBy().getId())) {
-                cb.setText(cb.getText() + " (Payer)");
+                infoLabel.setText(infoLabel.getText() + " (Payer)");
+                paidField.setDisable(true);
                 cb.setDisable(true);
                 cb.setSelected(true);
             } else {
+                paidField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+                    if (!newVal) { // Focus lost
+                        try {
+                            BigDecimal amount = new BigDecimal(paidField.getText());
+                            expenseService.updateSplitPayment(currentExpense.getId(), split.getId(), amount);
+                            cb.setSelected(amount.compareTo(split.getOwedAmount()) >= 0);
+                            changed = true;
+                        } catch (NumberFormatException e) {
+                            paidField.setText(split.getPaidAmount().toString());
+                        }
+                    }
+                });
+
                 cb.setOnAction(event -> {
                     expenseService.markSplitAsPaid(currentExpense.getId(), split.getId(), cb.isSelected());
+                    paidField.setText(
+                            cb.isSelected() ? split.getOwedAmount().setScale(0, RoundingMode.CEILING).toString() : "0");
                     changed = true;
                 });
             }
 
-            splitsContainer.getChildren().add(cb);
+            row.getChildren().addAll(infoLabel, new Label("Paid:"), paidField, cb);
+            splitsContainer.getChildren().add(row);
         }
     }
 
