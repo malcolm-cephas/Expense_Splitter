@@ -25,6 +25,8 @@
         <Button text="Add Member" onAction="#handleAddMember" styleClass="accent, large"/>
         <Button text="Add Expense" onAction="#handleAddExpense" styleClass="accent, large"/>
         <Button text="Settle Up" onAction="#handleSettleUp" styleClass="success, large"/>
+        <Button text="Export" onAction="#handleExport" styleClass="outlined, large"/>
+        <Button text="Stats" onAction="#handleShowStats" styleClass="outlined, large"/>
     </HBox>
 
     <!-- Content -->

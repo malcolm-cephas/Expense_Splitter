@@ -14,8 +14,14 @@ import javafx.scene.control.ListView;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import com.malcolm.expensesplitter.dto.TransactionDto;
+import com.malcolm.expensesplitter.services.ExportService;
+import com.malcolm.expensesplitter.services.SettlementService;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
@@ -38,6 +44,12 @@ public class GroupViewController {
 
     @Autowired
     private AppConfig appConfig;
+
+    @Autowired
+    private SettlementService settlementService;
+
+    @Autowired
+    private ExportService exportService;
 
     @FXML
     private Label groupNameLabel;
@@ -88,7 +100,9 @@ public class GroupViewController {
                     setContextMenu(null);
                 } else {
                     String mode = item.getPaymentMode() != null ? " via " + item.getPaymentMode() : "";
-                    setText(item.getDescription() + " - " + appConfig.getCurrencySymbol() + item.getAmount() + " "
+                    String category = item.getCategory() != null ? " [" + item.getCategory() + "]" : "";
+                    setText(item.getDescription() + category + " - " + appConfig.getCurrencySymbol() + item.getAmount()
+                            .setScale(0, java.math.RoundingMode.CEILING) + " "
                             + item.getCurrency() + mode);
                     // Ensure the item is selected on right click
                     setOnMousePressed(event -> {
@@ -304,6 +318,67 @@ public class GroupViewController {
             if (controller.isChanged()) {
                 refreshExpenses();
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    public void handleExport() {
+        if (currentGroup == null)
+            return;
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export Group Summary");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
+        fileChooser.setInitialFileName(currentGroup.getName().replace(" ", "_") + "_Report.csv");
+
+        java.io.File file = fileChooser.showSaveDialog(groupNameLabel.getScene().getWindow());
+        if (file != null) {
+            try (java.io.PrintWriter writer = new java.io.PrintWriter(file)) {
+                List<Expense> expenses = expenseService.getGroupExpenses(currentGroup.getId());
+                List<TransactionDto> settlements = settlementService.calculateSimplifiedDebts(currentGroup.getId());
+                exportService.exportGroupToCsv(currentGroup, expenses, settlements, writer);
+
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Export Successful");
+                alert.setHeaderText(null);
+                alert.setContentText("Report exported to: " + file.getAbsolutePath());
+                alert.showAndWait();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Export Failed");
+                alert.setHeaderText("An error occurred during export");
+                alert.setContentText(e.getMessage());
+                alert.showAndWait();
+            }
+        }
+    }
+
+    @FXML
+    public void handleShowStats() {
+        if (currentGroup == null)
+            return;
+
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/statistics_modal.fxml"));
+            loader.setControllerFactory(applicationContext::getBean);
+            Parent page = loader.load();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Spending Statistics");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+
+            Scene scene = new Scene(page);
+            scene.getStylesheets().addAll(groupNameLabel.getScene().getStylesheets());
+            dialogStage.setScene(scene);
+
+            StatisticsController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+            controller.setData(expenseService.getGroupExpenses(currentGroup.getId()));
+
+            dialogStage.showAndWait();
         } catch (Exception e) {
             e.printStackTrace();
         }

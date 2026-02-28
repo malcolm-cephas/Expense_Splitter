@@ -42,6 +42,9 @@ public class AddExpenseController {
     private ComboBox<String> paymentModeComboBox;
 
     @FXML
+    private ComboBox<String> categoryComboBox;
+
+    @FXML
     private TabPane splitTypeTabPane;
 
     @FXML
@@ -93,6 +96,11 @@ public class AddExpenseController {
         paymentModeComboBox
                 .setItems(FXCollections.observableArrayList("Cash", "UPI", "Card", "Bank Transfer", "Other"));
         paymentModeComboBox.getSelectionModel().selectFirst();
+
+        categoryComboBox.setItems(
+                FXCollections.observableArrayList("Food & Drinks", "Travel", "Entertainment", "Rent", "Groceries",
+                        "Utilities", "Other"));
+        categoryComboBox.getSelectionModel().selectFirst();
     }
 
     public void setDialogStage(Stage dialogStage) {
@@ -146,9 +154,10 @@ public class AddExpenseController {
 
         if (expense != null) {
             descriptionField.setText(expense.getDescription());
-            amountField.setText(expense.getAmount().toString());
+            amountField.setText(expense.getAmount().setScale(0, RoundingMode.CEILING).toString());
             payerComboBox.setValue(expense.getPaidBy());
             paymentModeComboBox.setValue(expense.getPaymentMode());
+            categoryComboBox.setValue(expense.getCategory());
             if (saveAndNewButton != null) {
                 saveAndNewButton.setVisible(false);
                 saveAndNewButton.setManaged(false);
@@ -250,6 +259,7 @@ public class AddExpenseController {
             String description = descriptionField.getText();
 
             String paymentMode = paymentModeComboBox.getValue();
+            String category = categoryComboBox.getValue();
             SplitType splitType = SplitType.EQUAL;
             Map<UUID, BigDecimal> splitInputs = new java.util.HashMap<>();
 
@@ -292,10 +302,10 @@ public class AddExpenseController {
 
             if (expenseToEdit != null) {
                 expenseService.updateExpense(expenseToEdit.getId(), currentGroup.getId(), paidBy.getId(), amount,
-                        description, paymentMode, splitType, splitInputs);
+                        description, paymentMode, category, splitType, splitInputs);
             } else {
                 expenseService.addExpense(currentGroup.getId(), paidBy.getId(), amount, description, paymentMode,
-                        splitType, splitInputs);
+                        category, splitType, splitInputs);
             }
 
             saveClicked = true;

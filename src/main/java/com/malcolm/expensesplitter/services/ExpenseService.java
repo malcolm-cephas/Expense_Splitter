@@ -30,12 +30,13 @@ public class ExpenseService {
     private UserRepository userRepository;
 
     public Expense addEqualExpense(UUID groupId, UUID paidById, BigDecimal amount, String description,
-            String paymentMode, Set<UUID> involvedMemberIds) {
+            String paymentMode, String category, Set<UUID> involvedMemberIds) {
         Group group = groupRepository.findById(groupId).orElseThrow();
         User paidBy = userRepository.findById(paidById).orElseThrow();
 
         Expense expense = new Expense(group, paidBy, amount, description, SplitType.EQUAL);
         expense.setPaymentMode(paymentMode);
+        expense.setCategory(category);
 
         Set<User> members = group.getMembers();
         Set<User> involvedMembers = members.stream()
@@ -58,8 +59,7 @@ public class ExpenseService {
     }
 
     public Expense updateEqualExpense(UUID expenseId, UUID groupId, UUID paidById, BigDecimal amount,
-            String description,
-            String paymentMode, Set<UUID> involvedMemberIds) {
+            String description, String paymentMode, String category, Set<UUID> involvedMemberIds) {
         Expense expense = expenseRepository.findById(expenseId).orElseThrow();
 
         Group group = groupRepository.findById(groupId).orElseThrow();
@@ -69,6 +69,7 @@ public class ExpenseService {
         expense.setAmount(amount);
         expense.setDescription(description);
         expense.setPaymentMode(paymentMode);
+        expense.setCategory(category);
 
         // Clear existing splits
         expense.getSplits().clear();
@@ -94,12 +95,13 @@ public class ExpenseService {
     }
 
     public Expense addExpense(UUID groupId, UUID paidById, BigDecimal amount, String description,
-            String paymentMode, SplitType splitType, Map<UUID, BigDecimal> splitInputs) {
+            String paymentMode, String category, SplitType splitType, Map<UUID, BigDecimal> splitInputs) {
         Group group = groupRepository.findById(groupId).orElseThrow();
         User paidBy = userRepository.findById(paidById).orElseThrow();
 
         Expense expense = new Expense(group, paidBy, amount, description, splitType);
         expense.setPaymentMode(paymentMode);
+        expense.setCategory(category);
 
         calculateAndAddSplits(expense, splitType, splitInputs, group.getMembers());
 
@@ -107,7 +109,8 @@ public class ExpenseService {
     }
 
     public Expense updateExpense(UUID expenseId, UUID groupId, UUID paidById, BigDecimal amount,
-            String description, String paymentMode, SplitType splitType, Map<UUID, BigDecimal> splitInputs) {
+            String description, String paymentMode, String category, SplitType splitType,
+            Map<UUID, BigDecimal> splitInputs) {
         Expense expense = expenseRepository.findById(expenseId).orElseThrow();
         Group group = groupRepository.findById(groupId).orElseThrow();
         User paidBy = userRepository.findById(paidById).orElseThrow();
@@ -116,6 +119,7 @@ public class ExpenseService {
         expense.setAmount(amount);
         expense.setDescription(description);
         expense.setPaymentMode(paymentMode);
+        expense.setCategory(category);
         expense.setSplitType(splitType);
 
         // Clear existing splits
@@ -178,6 +182,28 @@ public class ExpenseService {
         for (ExpenseSplit split : expense.getSplits()) {
             if (split.getUser().getId().equals(expense.getPaidBy().getId())) {
                 split.setPaid(true);
+            }
+        }
+
+        // Reconcile rounding differences (ensure sum of splits == total amount)
+        BigDecimal totalCalculatedSplits = expense.getSplits().stream()
+                .map(ExpenseSplit::getOwedAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal diff = totalAmount.subtract(totalCalculatedSplits);
+
+        if (diff.compareTo(BigDecimal.ZERO) != 0 && !expense.getSplits().isEmpty()) {
+            // Try to adjust the payer's split first
+            boolean adjusted = false;
+            for (ExpenseSplit split : expense.getSplits()) {
+                if (split.getUser().getId().equals(expense.getPaidBy().getId())) {
+                    split.setOwedAmount(split.getOwedAmount().add(diff));
+                    adjusted = true;
+                    break;
+                }
+            }
+            // If payer not in splits, adjust the first available split
+            if (!adjusted) {
+                expense.getSplits().get(0).setOwedAmount(expense.getSplits().get(0).getOwedAmount().add(diff));
             }
         }
     }
