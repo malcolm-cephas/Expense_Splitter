@@ -24,6 +24,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Controller for the Main Dashboard.
+ * Handles group creation, selection, and switching between different group
+ * views.
+ */
 @Controller
 public class DashboardController {
 

@@ -16,6 +16,11 @@ import java.util.UUID;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Service responsible for managing expenses and their splits.
+ * Handles equal and unequal splits, payment status updates, and rounding
+ * reconciliation.
+ */
 @Service
 @Transactional
 public class ExpenseService {
@@ -179,20 +184,25 @@ public class ExpenseService {
         }
 
         // Automatically mark the payer's split as settled/paid
+        // This is because the payer has already "paid" their share by paying for the
+        // whole expense
         for (ExpenseSplit split : expense.getSplits()) {
             if (split.getUser().getId().equals(expense.getPaidBy().getId())) {
                 split.setPaid(true);
             }
         }
 
-        // Reconcile rounding differences (ensure sum of splits == total amount)
+        // Reconcile rounding differences (ensure sum of splits matches the total amount
+        // exactly)
+        // This is crucial to avoid "ghost money" appearing or disappearing in the group
+        // balance.
         BigDecimal totalCalculatedSplits = expense.getSplits().stream()
                 .map(ExpenseSplit::getOwedAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal diff = totalAmount.subtract(totalCalculatedSplits);
 
         if (diff.compareTo(BigDecimal.ZERO) != 0 && !expense.getSplits().isEmpty()) {
-            // Try to adjust the payer's split first
+            // Adjust the payer's split by the difference to make it sum up correctly
             boolean adjusted = false;
             for (ExpenseSplit split : expense.getSplits()) {
                 if (split.getUser().getId().equals(expense.getPaidBy().getId())) {
@@ -201,7 +211,9 @@ public class ExpenseService {
                     break;
                 }
             }
-            // If payer not in splits, adjust the first available split
+            // If the payer is not part of the splits (e.g., they paid for others but not
+            // themselves),
+            // adjust the first available split.
             if (!adjusted) {
                 expense.getSplits().get(0).setOwedAmount(expense.getSplits().get(0).getOwedAmount().add(diff));
             }

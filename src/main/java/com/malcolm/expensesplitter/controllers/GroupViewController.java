@@ -30,6 +30,11 @@ import javafx.scene.control.TextInputDialog;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Controller for the Group View in the JavaFX application.
+ * Manages group details, member interactions, expense logging,
+ * debt visualization, and data export.
+ */
 @Controller
 public class GroupViewController {
 
@@ -330,15 +335,24 @@ public class GroupViewController {
 
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Export Group Summary");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
-        fileChooser.setInitialFileName(currentGroup.getName().replace(" ", "_") + "_Report.csv");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("PDF Files", "*.pdf"),
+                new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
+        fileChooser.setInitialFileName(currentGroup.getName().replace(" ", "_") + "_Report");
 
         java.io.File file = fileChooser.showSaveDialog(groupNameLabel.getScene().getWindow());
         if (file != null) {
-            try (java.io.PrintWriter writer = new java.io.PrintWriter(file)) {
+            try {
                 List<Expense> expenses = expenseService.getGroupExpenses(currentGroup.getId());
                 List<TransactionDto> settlements = settlementService.calculateSimplifiedDebts(currentGroup.getId());
-                exportService.exportGroupToCsv(currentGroup, expenses, settlements, writer);
+
+                if (file.getName().toLowerCase().endsWith(".pdf")) {
+                    exportService.exportGroupToPdf(currentGroup, expenses, settlements, file);
+                } else {
+                    try (java.io.PrintWriter writer = new java.io.PrintWriter(file)) {
+                        exportService.exportGroupToCsv(currentGroup, expenses, settlements, writer);
+                    }
+                }
 
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Export Successful");

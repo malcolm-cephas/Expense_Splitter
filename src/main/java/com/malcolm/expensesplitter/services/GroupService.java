@@ -12,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Service responsible for group management and membership operations.
+ */
 @Service
 @Transactional
 public class GroupService {

@@ -8,6 +8,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import atlantafx.base.theme.PrimerDark;
 
+/**
+ * Main Entry point for the Expense Splitter Pro application.
+ * Integrates Spring Boot with JavaFX to provide a powerful desktop experience
+ * with transactional database support and modern UI styling.
+ */
 @SpringBootApplication
 public class ExpenseSplitterApplication extends Application {
 

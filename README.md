@@ -12,8 +12,13 @@
 ## ✨ Key Features
 
 - **👥 Effortless Group Management**: Organize your social circles. Create custom groups for different occasions and manage members seamlessly.
-- **💰 Smart Expense Tracking**: Log expenses as they happen. Specify who paid, the total amount, and let the app handle the math.
+- **💰 Smart Expense Tracking**: Log expenses as they happen. Supports multiple split types: **Equal**, **Exact Amount**, **Percentage**, and **Shares**.
 - **📉 Debt Simplification Algorithm**: Our "Smart Settle Up" feature uses a greedy optimization algorithm to calculate the *minimum* number of transactions required to clear all debts within a group.
+- **📄 Professional Export options**: Export comprehensive group reports in **PDF** and **CSV** formats. Reports include:
+    - Expense summaries with involved members.
+    - Final user balance tables (Net owed/owing).
+    - Simplified suggested settlements.
+    - Detailed individual split history.
 - **🎨 Premium UI/UX**: Built with **JavaFX** and styled with the **AtlantaFX** (Primer Dark) theme for a sleek, modern, and dark-mode-first experience.
 - **💾 Robust Data Management**: Uses **Spring Data JPA** with an embedded **H2** database for zero-configuration local storage.
 
@@ -21,10 +26,11 @@
 
 ## 🛠️ Tech Stack
 
-- **Core Framework**: Spring Boot 3.2.3
-- **Frontend**: JavaFX 21 + FXML
+- **Core Framework**: Spring Boot 3.2.3 (Dependency Injection, Transactions, JPA)
+- **Frontend**: JavaFX 21 + FXML (Native Desktop Experience)
 - **Styling**: AtlantaFX (Modern CSS Framework for JavaFX)
-- **Database**: H2 (Embedded SQL)
+- **PDF Generation**: iText PDF Core 8
+- **Database**: H2 (Embedded SQL Database)
 - **Persistence**: Spring Data JPA / Hibernate
 - **Build Tool**: Maven
 
@@ -57,24 +63,65 @@
 
 ---
 
-## 🏗️ Architecture Overview
+## 🧩 Architecture & Implementation Details
 
-The project follows a clean, decoupled architecture to ensure maintainability and scalability:
+### 🔄 Application Flow
+```mermaid
+sequenceDiagram
+    participant User
+    participant Controllers as JavaFX Controllers
+    participant Services as Spring Services
+    participant DB as H2 Database
 
-- **UI Layer (`controllers/`)**: JavaFX controllers managing user interactions and FXML data binding.
-- **Service Layer (`services/`)**: Contains core business logic, including the debt simplification engine.
-- **Persistence Layer (`repositories/`)**: Spring Data repositories for abstracting database operations.
-- **Model Layer (`models/`)**: JPA entities representing Groups, Users, and Expenses.
+    User->>Controllers: Enter Expense Details
+    Controllers->>Services: addExpense(details)
+    Services->>Services: Calculate splits & rounding
+    Services->>DB: Save Expense & Splits
+    DB-->>Services: Confirmation
+    Services-->>Controllers: Result
+    Controllers->>User: Update UI with new state
+
+    User->>Controllers: Click "Settle Up"
+    Controllers->>Services: calculateSimplifiedDebts(groupId)
+    Services->>DB: Fetch group expenses
+    DB-->>Services: Expense List
+    Services->>Services: Run Greedy Algorithm
+    Services-->>Controllers: List of simplified transactions
+    Controllers->>User: Show Suggested Settlements
+```
+
+### Project Structure
+- **`com.malcolm.expensesplitter.controllers`**: JavaFX controllers handling UI logic and user events.
+- **`com.malcolm.expensesplitter.services`**: Core business logic.
+    - `SettlementService`: Implements the greedy debt simplification algorithm.
+    - `ExportService`: Handles the generation of PDF (via iText) and CSV reports.
+    - `ExpenseService`: Manages complex split calculations and transactional integrity.
+- **`com.malcolm.expensesplitter.models`**: JPA entities (Group, User, Expense, ExpenseSplit).
+- **`com.malcolm.expensesplitter.repositories`**: Data access layer using Spring Data JPA.
+
+### 🧠 Debt Simplification Algorithm
+The application minimizes the number of transactions using a greedy approach:
+1.  Calculate the net balance of every user (Total Paid - Total Share).
+2.  Identify **Debtors** (Negative balance) and **Creditors** (Positive balance).
+3.  Store them in two Max-Priority Queues.
+4.  Pair the largest debtor with the largest creditor to settle the maximum possible amount in a single transaction.
+5.  Repeat until all balances are settled.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Feel free to open an issue or submit a pull request for any improvements.
+Contributions are welcome! If you have suggestions for improvement or want to add new features:
+1.  Fork the Project
+2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4.  Push to the Branch (`git push origin feature/AmazingFeature`)
+5.  Open a Pull Request
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
-*Developed with ❤️ by Malcolm*
+*Developed by Malcolm*
+
