@@ -42,9 +42,16 @@ public class ExpenseDetailsController {
 
     public void setExpense(Expense expense) {
         this.currentExpense = expense;
+        String payerText;
+        if (expense.getPayments().size() > 1) {
+            payerText = "Multiple Payers";
+        } else {
+            payerText = "Paid by " + (expense.getPaidBy() != null ? expense.getPaidBy().getName() : "Unknown");
+        }
+
         expenseInfoLabel.setText(
-                expense.getDescription() + " - " + appConfig.getCurrencySymbol() + expense.getAmount() + " (Paid by "
-                        + expense.getPaidBy().getName() + ")");
+                expense.getDescription() + " - " + appConfig.getCurrencySymbol() + expense.getAmount() + " ("
+                        + payerText + ")");
 
         loadSplits();
     }
@@ -67,8 +74,11 @@ public class ExpenseDetailsController {
             CheckBox cb = new CheckBox("Settled");
             cb.setSelected(split.isPaid());
 
-            // Disable for original payer as they are already settled
-            if (split.getUser().getId().equals(currentExpense.getPaidBy().getId())) {
+            // Disable for those who paid enough to cover their share
+            boolean isPayer = currentExpense.getPayments().stream()
+                    .anyMatch(p -> p.getUser().getId().equals(split.getUser().getId()));
+
+            if (isPayer && split.isPaid()) {
                 infoLabel.setText(infoLabel.getText() + " (Payer)");
                 paidField.setDisable(true);
                 cb.setDisable(true);

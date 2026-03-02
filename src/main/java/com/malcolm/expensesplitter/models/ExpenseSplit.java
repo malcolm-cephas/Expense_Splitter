@@ -81,14 +81,16 @@ public class ExpenseSplit {
     }
 
     public boolean isPaid() {
-        return isPaid;
+        if (owedAmount == null)
+            return true;
+        return getPaidAmount().compareTo(owedAmount) >= 0 || isPaid;
     }
 
     public void setPaid(boolean paid) {
-        isPaid = paid;
-        if (isPaid && owedAmount != null) {
+        this.isPaid = paid;
+        if (paid && owedAmount != null && getPaidAmount().compareTo(owedAmount) < 0) {
             this.paidAmount = owedAmount;
-        } else if (!isPaid) {
+        } else if (!paid) {
             this.paidAmount = BigDecimal.ZERO;
         }
     }

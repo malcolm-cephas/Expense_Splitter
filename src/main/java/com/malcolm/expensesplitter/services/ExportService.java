@@ -83,11 +83,16 @@ public class ExportService {
                             + s.getOwedAmount().setScale(2, java.math.RoundingMode.HALF_UP) + ")")
                     .collect(Collectors.joining("\n"));
 
+            String paidByStr = e.getPayments().stream()
+                    .map(p -> p.getUser().getName() + " (" + p.getAmount().setScale(2, java.math.RoundingMode.HALF_UP)
+                            + ")")
+                    .collect(Collectors.joining("\n"));
+
             summaryTable.addCell(e.getCreatedAt().toString().substring(0, 10));
             summaryTable.addCell(e.getDescription());
             summaryTable.addCell(e.getCategory() != null ? e.getCategory() : "Other");
             summaryTable.addCell(e.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString());
-            summaryTable.addCell(e.getPaidBy().getName());
+            summaryTable.addCell(new Cell().add(new Paragraph(paidByStr).setFontSize(9)));
             summaryTable.addCell(status);
             summaryTable.addCell(new Cell().add(new Paragraph(involved).setFontSize(9)));
         }
@@ -114,7 +119,10 @@ public class ExportService {
             totalShareOf.put(member.getId(), BigDecimal.ZERO);
         }
         for (Expense e : expenses) {
-            totalPaidBy.put(e.getPaidBy().getId(), totalPaidBy.get(e.getPaidBy().getId()).add(e.getAmount()));
+            for (com.malcolm.expensesplitter.models.ExpensePayment payment : e.getPayments()) {
+                UUID payerId = payment.getUser().getId();
+                totalPaidBy.put(payerId, totalPaidBy.get(payerId).add(payment.getAmount()));
+            }
             for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
                 totalShareOf.put(split.getUser().getId(),
                         totalShareOf.get(split.getUser().getId()).add(split.getOwedAmount()));
@@ -215,11 +223,16 @@ public class ExportService {
                             + s.getOwedAmount().setScale(2, java.math.RoundingMode.HALF_UP))
                     .collect(Collectors.joining(" | "));
 
+            String paidByStr = e.getPayments().stream()
+                    .map(p -> p.getUser().getName() + " (" + p.getAmount().setScale(2, java.math.RoundingMode.HALF_UP)
+                            + ")")
+                    .collect(Collectors.joining(" | "));
+
             writer.println(e.getCreatedAt().toString().substring(0, 10) + "," +
                     escapeCsv(e.getDescription()) + "," +
                     escapeCsv(e.getCategory() != null ? e.getCategory() : "Other") + "," +
                     e.getAmount().setScale(2, java.math.RoundingMode.HALF_UP) + "," +
-                    escapeCsv(e.getPaidBy().getName()) + "," +
+                    escapeCsv(paidByStr) + "," +
                     escapeCsv(e.getPaymentMode() != null ? e.getPaymentMode() : "Cash") + "," +
                     status + "," +
                     escapeCsv(involved));
@@ -257,8 +270,10 @@ public class ExportService {
         }
 
         for (Expense e : expenses) {
-            UUID payerId = e.getPaidBy().getId();
-            totalPaidBy.put(payerId, totalPaidBy.getOrDefault(payerId, BigDecimal.ZERO).add(e.getAmount()));
+            for (com.malcolm.expensesplitter.models.ExpensePayment payment : e.getPayments()) {
+                UUID payerId = payment.getUser().getId();
+                totalPaidBy.put(payerId, totalPaidBy.getOrDefault(payerId, BigDecimal.ZERO).add(payment.getAmount()));
+            }
             for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
                 UUID memberId = split.getUser().getId();
                 totalShareOf.put(memberId,

@@ -4,6 +4,7 @@ import com.malcolm.expensesplitter.models.Group;
 import com.malcolm.expensesplitter.models.User;
 import com.malcolm.expensesplitter.services.ExpenseService;
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
@@ -37,6 +38,11 @@ public class AddExpenseController {
 
     @FXML
     private ComboBox<User> payerComboBox;
+
+    @FXML
+    private javafx.scene.layout.VBox multiplePayersContainer;
+
+    private User multiplePayersSentinel = new User("Multiple Payers...", "multp@splitter.internal", "INR");
 
     @FXML
     private ComboBox<String> paymentModeComboBox;
@@ -93,6 +99,12 @@ public class AddExpenseController {
             }
         });
 
+        payerComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                handlePayerSelection(newVal);
+            }
+        });
+
         paymentModeComboBox
                 .setItems(FXCollections.observableArrayList("Cash", "UPI", "Card", "Bank Transfer", "Other"));
         paymentModeComboBox.getSelectionModel().selectFirst();
@@ -109,7 +121,9 @@ public class AddExpenseController {
 
     public void setGroup(Group group) {
         this.currentGroup = group;
-        payerComboBox.setItems(FXCollections.observableArrayList(group.getMembers()));
+        ObservableList<User> items = FXCollections.observableArrayList(group.getMembers());
+        items.add(multiplePayersSentinel);
+        payerComboBox.setItems(items);
         if (!group.getMembers().isEmpty()) {
             payerComboBox.getSelectionModel().selectFirst();
         }
@@ -119,8 +133,11 @@ public class AddExpenseController {
             exactAmountContainer.getChildren().clear();
             percentageContainer.getChildren().clear();
             sharesContainer.getChildren().clear();
+            multiplePayersContainer.getChildren().clear();
 
             for (User member : group.getMembers()) {
+                // Payments UI
+                multiplePayersContainer.getChildren().add(createInputRow(member, "0"));
                 // Equal Tab
                 CheckBox cb = new CheckBox(member.getName());
                 cb.setUserData(member.getId());
@@ -161,6 +178,14 @@ public class AddExpenseController {
             if (saveAndNewButton != null) {
                 saveAndNewButton.setVisible(false);
                 saveAndNewButton.setManaged(false);
+            }
+
+            // Multiple Payers UI
+            if (expense.getPayments().size() > 1) {
+                payerComboBox.getSelectionModel().select(multiplePayersSentinel);
+                populatePaymentContainer(multiplePayersContainer, expense);
+            } else {
+                payerComboBox.getSelectionModel().select(expense.getPaidBy());
             }
 
             // Select the correct tab and populate values
@@ -210,6 +235,32 @@ public class AddExpenseController {
                         cb.setSelected(true);
                 }
             }
+            multiplePayersContainer.getChildren().clear();
+        }
+    }
+
+    private void handlePayerSelection(User selectedPayer) {
+        boolean isMultiple = selectedPayer.equals(multiplePayersSentinel);
+        multiplePayersContainer.setVisible(isMultiple);
+        multiplePayersContainer.setManaged(isMultiple);
+    }
+
+    private void populatePaymentContainer(javafx.scene.layout.VBox container, Expense expense) {
+        Map<UUID, BigDecimal> currentPayments = new HashMap<>();
+        for (com.malcolm.expensesplitter.models.ExpensePayment payment : expense.getPayments()) {
+            currentPayments.put(payment.getUser().getId(), payment.getAmount());
+        }
+
+        for (javafx.scene.Node node : container.getChildren()) {
+            if (node instanceof javafx.scene.layout.HBox row) {
+                TextField tf = (TextField) row.getChildren().get(1);
+                UUID userId = (UUID) tf.getUserData();
+                if (currentPayments.containsKey(userId)) {
+                    tf.setText(currentPayments.get(userId).setScale(0, RoundingMode.CEILING).toString());
+                } else {
+                    tf.setText("0");
+                }
+            }
         }
     }
 
@@ -254,7 +305,6 @@ public class AddExpenseController {
 
     private boolean saveInternal() {
         if (isInputValid()) {
-            User paidBy = payerComboBox.getValue();
             BigDecimal amount = new BigDecimal(amountField.getText());
             String description = descriptionField.getText();
 
@@ -300,11 +350,26 @@ public class AddExpenseController {
                 }
             }
 
+            Map<UUID, BigDecimal> paymentInputs = new HashMap<>();
+            if (payerComboBox.getSelectionModel().getSelectedItem().equals(multiplePayersSentinel)) {
+                for (javafx.scene.Node node : multiplePayersContainer.getChildren()) {
+                    if (node instanceof javafx.scene.layout.HBox row) {
+                        TextField tf = (TextField) row.getChildren().get(1);
+                        BigDecimal val = new BigDecimal(tf.getText().isEmpty() ? "0" : tf.getText());
+                        if (val.compareTo(BigDecimal.ZERO) > 0) {
+                            paymentInputs.put((UUID) tf.getUserData(), val);
+                        }
+                    }
+                }
+            } else {
+                paymentInputs.put(payerComboBox.getValue().getId(), amount);
+            }
+
             if (expenseToEdit != null) {
-                expenseService.updateExpense(expenseToEdit.getId(), currentGroup.getId(), paidBy.getId(), amount,
+                expenseService.updateExpense(expenseToEdit.getId(), currentGroup.getId(), paymentInputs, amount,
                         description, paymentMode, category, splitType, splitInputs);
             } else {
-                expenseService.addExpense(currentGroup.getId(), paidBy.getId(), amount, description, paymentMode,
+                expenseService.addExpense(currentGroup.getId(), paymentInputs, amount, description, paymentMode,
                         category, splitType, splitInputs);
             }
 
@@ -336,6 +401,29 @@ public class AddExpenseController {
         }
         if (payerComboBox.getValue() == null) {
             errorMessage += "No valid payer selected!\n";
+        }
+
+        if (multiplePayersSentinel.equals(payerComboBox.getValue())) {
+            BigDecimal totalPaid = BigDecimal.ZERO;
+            for (javafx.scene.Node node : multiplePayersContainer.getChildren()) {
+                if (node instanceof javafx.scene.layout.HBox row) {
+                    TextField tf = (TextField) row.getChildren().get(1);
+                    try {
+                        totalPaid = totalPaid.add(new BigDecimal(tf.getText().isEmpty() ? "0" : tf.getText()));
+                    } catch (NumberFormatException e) {
+                        errorMessage += "Invalid payment amount for one of the members.\n";
+                        break;
+                    }
+                }
+            }
+            try {
+                BigDecimal expected = new BigDecimal(amountField.getText());
+                if (totalPaid.compareTo(expected) != 0) {
+                    errorMessage += "Total paid amounts (" + totalPaid + ") must equal expense amount (" + expected
+                            + ")!\n";
+                }
+            } catch (Exception e) {
+            }
         }
 
         // Tab specific validation

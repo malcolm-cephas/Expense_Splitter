@@ -19,9 +19,14 @@ public class Expense {
     @JoinColumn(name = "group_id", nullable = false)
     private Group group;
 
+    // Legacy field - kept as nullable to satisfy existing DB schema
+    // and allow Hibernate to auto-update 'NOT NULL' constraint to Nullable
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "paid_by_id", nullable = false)
-    private User paidBy;
+    @JoinColumn(name = "paid_by_id", nullable = true)
+    private User legacyPaidBy;
+
+    @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<ExpensePayment> payments = new ArrayList<>();
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
@@ -47,9 +52,8 @@ public class Expense {
     public Expense() {
     }
 
-    public Expense(Group group, User paidBy, BigDecimal amount, String description, SplitType splitType) {
+    public Expense(Group group, BigDecimal amount, String description, SplitType splitType) {
         this.group = group;
-        this.paidBy = paidBy;
         this.amount = amount;
         this.description = description;
         this.splitType = splitType;
@@ -72,12 +76,41 @@ public class Expense {
         this.group = group;
     }
 
-    public User getPaidBy() {
-        return paidBy;
+    public User getLegacyPaidBy() {
+        return legacyPaidBy;
     }
 
-    public void setPaidBy(User paidBy) {
-        this.paidBy = paidBy;
+    public void setLegacyPaidBy(User legacyPaidBy) {
+        this.legacyPaidBy = legacyPaidBy;
+    }
+
+    public List<ExpensePayment> getPayments() {
+        return payments;
+    }
+
+    public void setPayments(List<ExpensePayment> payments) {
+        this.payments = payments;
+    }
+
+    public void addPayment(ExpensePayment payment) {
+        payments.add(payment);
+        payment.setExpense(this);
+    }
+
+    public void removePayment(ExpensePayment payment) {
+        payments.remove(payment);
+        payment.setExpense(null);
+    }
+
+    /**
+     * Returns the primary payer (for UI or legacy support).
+     * If multiple exists, returns the first one.
+     */
+    @Transient
+    public User getPaidBy() {
+        if (payments == null || payments.isEmpty())
+            return null;
+        return payments.get(0).getUser();
     }
 
     public BigDecimal getAmount() {

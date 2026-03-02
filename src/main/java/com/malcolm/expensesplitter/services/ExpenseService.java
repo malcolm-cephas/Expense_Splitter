@@ -39,7 +39,8 @@ public class ExpenseService {
         Group group = groupRepository.findById(groupId).orElseThrow();
         User paidBy = userRepository.findById(paidById).orElseThrow();
 
-        Expense expense = new Expense(group, paidBy, amount, description, SplitType.EQUAL);
+        Expense expense = new Expense(group, amount, description, SplitType.EQUAL);
+        expense.addPayment(new ExpensePayment(paidBy, amount));
         expense.setPaymentMode(paymentMode);
         expense.setCategory(category);
 
@@ -70,7 +71,9 @@ public class ExpenseService {
         Group group = groupRepository.findById(groupId).orElseThrow();
         User paidBy = userRepository.findById(paidById).orElseThrow();
 
-        expense.setPaidBy(paidBy);
+        expense.getPayments().clear();
+        expense.addPayment(new ExpensePayment(paidBy, amount));
+        expense.setLegacyPaidBy(paidBy);
         expense.setAmount(amount);
         expense.setDescription(description);
         expense.setPaymentMode(paymentMode);
@@ -99,33 +102,62 @@ public class ExpenseService {
         return expenseRepository.save(expense);
     }
 
-    public Expense addExpense(UUID groupId, UUID paidById, BigDecimal amount, String description,
+    public Expense addExpense(UUID groupId, Map<UUID, BigDecimal> paymentInputs, BigDecimal amount, String description,
             String paymentMode, String category, SplitType splitType, Map<UUID, BigDecimal> splitInputs) {
         Group group = groupRepository.findById(groupId).orElseThrow();
-        User paidBy = userRepository.findById(paidById).orElseThrow();
 
-        Expense expense = new Expense(group, paidBy, amount, description, splitType);
+        Expense expense = new Expense(group, amount, description, splitType);
         expense.setPaymentMode(paymentMode);
         expense.setCategory(category);
+
+        // Add payments
+        if (!paymentInputs.isEmpty()) {
+            UUID firstPayerId = paymentInputs.keySet().iterator().next();
+            User firstPayer = userRepository.findById(firstPayerId).orElseThrow();
+            expense.setLegacyPaidBy(firstPayer);
+        }
+
+        for (Map.Entry<UUID, BigDecimal> entry : paymentInputs.entrySet()) {
+            User user = userRepository.findById(entry.getKey()).orElseThrow();
+            expense.addPayment(new ExpensePayment(user, entry.getValue()));
+        }
 
         calculateAndAddSplits(expense, splitType, splitInputs, group.getMembers());
 
         return expenseRepository.save(expense);
     }
 
-    public Expense updateExpense(UUID expenseId, UUID groupId, UUID paidById, BigDecimal amount,
+    // For legacy/simple calls with single payer
+    public Expense addExpense(UUID groupId, UUID paidById, BigDecimal amount, String description,
+            String paymentMode, String category, SplitType splitType, Map<UUID, BigDecimal> splitInputs) {
+        Map<UUID, BigDecimal> paymentInputs = java.util.Collections.singletonMap(paidById, amount);
+        return addExpense(groupId, paymentInputs, amount, description, paymentMode, category, splitType, splitInputs);
+    }
+
+    public Expense updateExpense(UUID expenseId, UUID groupId, Map<UUID, BigDecimal> paymentInputs, BigDecimal amount,
             String description, String paymentMode, String category, SplitType splitType,
             Map<UUID, BigDecimal> splitInputs) {
         Expense expense = expenseRepository.findById(expenseId).orElseThrow();
         Group group = groupRepository.findById(groupId).orElseThrow();
-        User paidBy = userRepository.findById(paidById).orElseThrow();
 
-        expense.setPaidBy(paidBy);
         expense.setAmount(amount);
         expense.setDescription(description);
         expense.setPaymentMode(paymentMode);
         expense.setCategory(category);
         expense.setSplitType(splitType);
+
+        // Clear and Add new payments
+        expense.getPayments().clear();
+        if (!paymentInputs.isEmpty()) {
+            UUID firstPayerId = paymentInputs.keySet().iterator().next();
+            User firstPayer = userRepository.findById(firstPayerId).orElseThrow();
+            expense.setLegacyPaidBy(firstPayer);
+        }
+
+        for (Map.Entry<UUID, BigDecimal> entry : paymentInputs.entrySet()) {
+            User user = userRepository.findById(entry.getKey()).orElseThrow();
+            expense.addPayment(new ExpensePayment(user, entry.getValue()));
+        }
 
         // Clear existing splits
         expense.getSplits().clear();
@@ -133,6 +165,15 @@ public class ExpenseService {
         calculateAndAddSplits(expense, splitType, splitInputs, group.getMembers());
 
         return expenseRepository.save(expense);
+    }
+
+    // For legacy/simple calls with single payer
+    public Expense updateExpense(UUID expenseId, UUID groupId, UUID paidById, BigDecimal amount,
+            String description, String paymentMode, String category, SplitType splitType,
+            Map<UUID, BigDecimal> splitInputs) {
+        Map<UUID, BigDecimal> paymentInputs = java.util.Collections.singletonMap(paidById, amount);
+        return updateExpense(expenseId, groupId, paymentInputs, amount, description, paymentMode, category, splitType,
+                splitInputs);
     }
 
     private void calculateAndAddSplits(Expense expense, SplitType splitType, Map<UUID, BigDecimal> splitInputs,
@@ -183,14 +224,12 @@ public class ExpenseService {
             }
         }
 
-        // Automatically mark the payer's split as settled/paid
-        // This is because the payer has already "paid" their share by paying for the
-        // whole expense
-        for (ExpenseSplit split : expense.getSplits()) {
-            if (split.getUser().getId().equals(expense.getPaidBy().getId())) {
-                split.setPaid(true);
-            }
-        }
+        // Automatically mark the payers' splits as settled/paid (up to their paid
+        // amount)
+        // We removed the auto-mark logic because it was causing double-counting in
+        // settlements.
+        // The who-paid info now lives in ExpensePayment, and split.paidAmount is for
+        // manual settlements only.
 
         // Reconcile rounding differences (ensure sum of splits matches the total amount
         // exactly)
@@ -202,13 +241,16 @@ public class ExpenseService {
         BigDecimal diff = totalAmount.subtract(totalCalculatedSplits);
 
         if (diff.compareTo(BigDecimal.ZERO) != 0 && !expense.getSplits().isEmpty()) {
-            // Adjust the payer's split by the difference to make it sum up correctly
+            // Adjust the first payer's split by the difference to make it sum up correctly
             boolean adjusted = false;
-            for (ExpenseSplit split : expense.getSplits()) {
-                if (split.getUser().getId().equals(expense.getPaidBy().getId())) {
-                    split.setOwedAmount(split.getOwedAmount().add(diff));
-                    adjusted = true;
-                    break;
+            UUID primaryPayerId = expense.getPaidBy() != null ? expense.getPaidBy().getId() : null;
+            if (primaryPayerId != null) {
+                for (ExpenseSplit split : expense.getSplits()) {
+                    if (split.getUser().getId().equals(primaryPayerId)) {
+                        split.setOwedAmount(split.getOwedAmount().add(diff));
+                        adjusted = true;
+                        break;
+                    }
                 }
             }
             // If the payer is not part of the splits (e.g., they paid for others but not

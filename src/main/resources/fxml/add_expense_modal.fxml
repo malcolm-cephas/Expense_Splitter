@@ -33,13 +33,15 @@
                 <TextField fx:id="amountField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
                 
                 <Label text="Paid by:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-                <ComboBox fx:id="payerComboBox" GridPane.columnIndex="1" GridPane.rowIndex="2" maxWidth="Infinity"/>
+                <ComboBox fx:id="payerComboBox" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
 
-                <Label text="Payment Mode:" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
-                <ComboBox fx:id="paymentModeComboBox" GridPane.columnIndex="1" GridPane.rowIndex="3" maxWidth="Infinity"/>
+                <VBox fx:id="multiplePayersContainer" spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="3" managed="false" visible="false"/>
 
-                <Label text="Category:" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
-                <ComboBox fx:id="categoryComboBox" GridPane.columnIndex="1" GridPane.rowIndex="4" maxWidth="Infinity"/>
+                <Label text="Payment Mode:" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                <ComboBox fx:id="paymentModeComboBox" GridPane.columnIndex="1" GridPane.rowIndex="4" maxWidth="Infinity"/>
+
+                <Label text="Category:" GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+                <ComboBox fx:id="categoryComboBox" GridPane.columnIndex="1" GridPane.rowIndex="5" maxWidth="Infinity"/>
             </GridPane>
 
             <Separator/>
