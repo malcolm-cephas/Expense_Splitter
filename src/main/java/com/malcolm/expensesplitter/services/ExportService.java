@@ -212,20 +212,27 @@ public class ExportService {
                 splitsTable.addHeaderCell(
                                 new Cell().add(new Paragraph("Status")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
 
-                for (Expense e : expenses) {
-                        for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
-                                splitsTable.addCell(split.getUser().getName());
-                                splitsTable.addCell(e.getDescription());
-                                splitsTable.addCell(split.getOwedAmount().setScale(2, java.math.RoundingMode.HALF_UP)
-                                                .toString());
-                                splitsTable.addCell(split.getPaidAmount().setScale(2, java.math.RoundingMode.HALF_UP)
-                                                .toString());
+                for (User member : group.getMembers()) {
+                        for (Expense e : expenses) {
+                                for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
+                                        if (split.getUser().getId().equals(member.getId())) {
+                                                splitsTable.addCell(member.getName());
+                                                splitsTable.addCell(e.getDescription());
+                                                splitsTable.addCell(split.getOwedAmount()
+                                                                .setScale(2, java.math.RoundingMode.HALF_UP)
+                                                                .toString());
+                                                splitsTable.addCell(split.getPaidAmount()
+                                                                .setScale(2, java.math.RoundingMode.HALF_UP)
+                                                                .toString());
 
-                                Cell statusCell = new Cell().add(new Paragraph(split.isPaid() ? "Settled" : "Pending"));
-                                if (split.isPaid()) {
-                                        statusCell.setFontColor(ColorConstants.GREEN);
+                                                Cell statusCell = new Cell().add(
+                                                                new Paragraph(split.isPaid() ? "Settled" : "Pending"));
+                                                if (split.isPaid()) {
+                                                        statusCell.setFontColor(ColorConstants.GREEN);
+                                                }
+                                                splitsTable.addCell(statusCell);
+                                        }
                                 }
-                                splitsTable.addCell(statusCell);
                         }
                 }
                 document.add(splitsTable);
@@ -280,16 +287,24 @@ public class ExportService {
                 // 2. Detailed Splits Table
                 writer.println("--- DETAILED INDIVIDUAL SPLITS ---");
                 writer.println("Member Name,Expense Description,Owed Amount,Paid Amount,Status");
-                for (Expense e : expenses) {
-                        for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
-                                String splitStatus = split.isPaid() ? "Settled" : "Pending";
-                                writer.println(escapeCsv(split.getUser().getName()) + "," +
-                                                escapeCsv(e.getDescription()) + "," +
-                                                split.getOwedAmount().setScale(2, java.math.RoundingMode.HALF_UP) + ","
-                                                +
-                                                split.getPaidAmount().setScale(2, java.math.RoundingMode.HALF_UP) + ","
-                                                +
-                                                splitStatus);
+                for (User member : group.getMembers()) {
+                        for (Expense e : expenses) {
+                                for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
+                                        if (split.getUser().getId().equals(member.getId())) {
+                                                String splitStatus = split.isPaid() ? "Settled" : "Pending";
+                                                writer.println(escapeCsv(member.getName()) + "," +
+                                                                escapeCsv(e.getDescription()) + "," +
+                                                                split.getOwedAmount().setScale(2,
+                                                                                java.math.RoundingMode.HALF_UP)
+                                                                + ","
+                                                                +
+                                                                split.getPaidAmount().setScale(2,
+                                                                                java.math.RoundingMode.HALF_UP)
+                                                                + ","
+                                                                +
+                                                                splitStatus);
+                                        }
+                                }
                         }
                 }
                 writer.println();
