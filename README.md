@@ -13,14 +13,11 @@
 
 - **👥 Effortless Group Management**: Organize your social circles. Create custom groups for different occasions and manage members seamlessly.
 - **💰 Smart Expense Tracking**: Log expenses as they happen. Supports multiple split types: **Equal**, **Exact Amount**, **Percentage**, and **Shares**.
-- **📉 Debt Simplification Algorithm**: Our "Smart Settle Up" feature uses a greedy optimization algorithm to calculate the *minimum* number of transactions required to clear all debts within a group.
-- **📄 Professional Export options**: Export comprehensive group reports in **PDF** and **CSV** formats. Reports include:
-    - Expense summaries with involved members.
-    - Final user balance tables (Net owed/owing).
-    - Simplified suggested settlements.
-    - Detailed individual split history.
+- **💳 Multiple Payer Support**: A single expense can now be split among multiple payers. Perfect for situations where a few friends chip in for a large bill. Select "Multiple Payers..." in the dropdown to enter specific payment amounts for each person.
+- **📉 Debt Simplification Algorithm**: Our "Smart Settle Up" feature uses a greedy optimization algorithm with a contribution-based balance model to calculate the *minimum* number of transactions required to clear all debts.
+- **📄 Professional Export options**: Export comprehensive group reports in **PDF** and **CSV** formats. Reports correctly reflect multi-payer contributions and individual shares.
 - **🎨 Premium UI/UX**: Built with **JavaFX** and styled with the **AtlantaFX** (Primer Dark) theme for a sleek, modern, and dark-mode-first experience.
-- **💾 Robust Data Management**: Uses **Spring Data JPA** with an embedded **H2** database for zero-configuration local storage.
+- **💾 Robust Persistence**: Uses **Spring Data JPA** with an embedded **H2** database. Includes a compatibility layer for schema migrations during updates.
 
 ---
 
@@ -101,7 +98,7 @@ sequenceDiagram
 
 ### 🧠 Debt Simplification Algorithm
 The application minimizes the number of transactions using a greedy approach:
-1.  Calculate the net balance of every user (Total Paid - Total Share).
+1.  Calculate the net balance of every user using the formula: `Balance = Σ(Payments Contributed) - Σ(Individual Shares Owed)`.
 2.  Identify **Debtors** (Negative balance) and **Creditors** (Positive balance).
 3.  Store them in two Max-Priority Queues.
 4.  Pair the largest debtor with the largest creditor to settle the maximum possible amount in a single transaction.
