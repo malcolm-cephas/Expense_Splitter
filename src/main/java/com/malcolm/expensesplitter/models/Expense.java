@@ -3,6 +3,7 @@ package com.malcolm.expensesplitter.models;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 import java.util.List;
 import java.util.ArrayList;
@@ -46,6 +47,8 @@ public class Expense {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    private LocalDate expenseDate = LocalDate.now();
+
     @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<ExpenseSplit> splits = new ArrayList<>();
 
@@ -58,6 +61,7 @@ public class Expense {
         this.description = description;
         this.splitType = splitType;
         this.createdAt = LocalDateTime.now();
+        this.expenseDate = LocalDate.now();
     }
 
     public UUID getId() {
@@ -175,6 +179,14 @@ public class Expense {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDate getExpenseDate() {
+        return expenseDate;
+    }
+
+    public void setExpenseDate(LocalDate expenseDate) {
+        this.expenseDate = expenseDate;
     }
 
     public List<ExpenseSplit> getSplits() {

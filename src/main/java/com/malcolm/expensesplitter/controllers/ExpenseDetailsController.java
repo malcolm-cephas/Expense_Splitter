@@ -14,8 +14,8 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import java.time.format.DateTimeFormatter;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 
 @Controller
 public class ExpenseDetailsController {
@@ -28,6 +28,9 @@ public class ExpenseDetailsController {
 
     @FXML
     private Label expenseInfoLabel;
+
+    @FXML
+    private Label expenseDateLabel;
 
     @FXML
     private VBox splitsContainer;
@@ -53,6 +56,12 @@ public class ExpenseDetailsController {
                 expense.getDescription() + " - " + appConfig.getCurrencySymbol() + expense.getAmount() + " ("
                         + payerText + ")");
 
+        if (expense.getExpenseDate() != null) {
+            expenseDateLabel.setText(expense.getExpenseDate().format(DateTimeFormatter.ofPattern("dd MMMM yyyy")));
+        } else {
+            expenseDateLabel.setText("");
+        }
+
         loadSplits();
     }
 
@@ -64,10 +73,10 @@ public class ExpenseDetailsController {
 
             Label infoLabel = new Label(
                     split.getUser().getName() + " owes " + appConfig.getCurrencySymbol()
-                            + split.getOwedAmount().setScale(0, RoundingMode.CEILING));
+                            + split.getOwedAmount().stripTrailingZeros().toPlainString());
             infoLabel.setPrefWidth(250);
 
-            TextField paidField = new TextField(split.getPaidAmount().setScale(0, RoundingMode.CEILING).toString());
+            TextField paidField = new TextField(split.getPaidAmount().stripTrailingZeros().toPlainString());
             paidField.setPrefWidth(100);
             paidField.setPromptText("Paid");
 
@@ -100,7 +109,7 @@ public class ExpenseDetailsController {
                 cb.setOnAction(event -> {
                     expenseService.markSplitAsPaid(currentExpense.getId(), split.getId(), cb.isSelected());
                     paidField.setText(
-                            cb.isSelected() ? split.getOwedAmount().setScale(0, RoundingMode.CEILING).toString() : "0");
+                            cb.isSelected() ? split.getOwedAmount().stripTrailingZeros().toPlainString() : "0");
                     changed = true;
                 });
             }

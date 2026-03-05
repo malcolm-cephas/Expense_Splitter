@@ -21,6 +21,7 @@ import javafx.stage.Stage;
 import com.malcolm.expensesplitter.dto.TransactionDto;
 import com.malcolm.expensesplitter.services.ExportService;
 import com.malcolm.expensesplitter.services.SettlementService;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -106,9 +107,12 @@ public class GroupViewController {
                 } else {
                     String mode = item.getPaymentMode() != null ? " via " + item.getPaymentMode() : "";
                     String category = item.getCategory() != null ? " [" + item.getCategory() + "]" : "";
+                    String date = item.getExpenseDate() != null
+                            ? " (" + item.getExpenseDate().format(DateTimeFormatter.ofPattern("dd MMMM yyyy")) + ")"
+                            : "";
                     setText(item.getDescription() + category + " - " + appConfig.getCurrencySymbol() + item.getAmount()
-                            .setScale(0, java.math.RoundingMode.CEILING) + " "
-                            + item.getCurrency() + mode);
+                            .stripTrailingZeros().toPlainString() + " "
+                            + item.getCurrency() + mode + date);
                     // Ensure the item is selected on right click
                     setOnMousePressed(event -> {
                         if (event.isSecondaryButtonDown()) {

@@ -13,15 +13,17 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import com.malcolm.expensesplitter.models.Expense;
 import com.malcolm.expensesplitter.models.ExpenseSplit;
 import com.malcolm.expensesplitter.models.SplitType;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.time.LocalDate;
+import javafx.util.StringConverter;
 
 @Controller
 @Scope("prototype")
@@ -49,6 +51,9 @@ public class AddExpenseController {
 
     @FXML
     private ComboBox<String> categoryComboBox;
+
+    @FXML
+    private DatePicker expenseDatePicker;
 
     @FXML
     private TabPane splitTypeTabPane;
@@ -113,6 +118,32 @@ public class AddExpenseController {
                 FXCollections.observableArrayList("Food & Drinks", "Travel", "Entertainment", "Rent", "Groceries",
                         "Utilities", "Other"));
         categoryComboBox.getSelectionModel().selectFirst();
+
+        setupDatePicker();
+    }
+
+    private void setupDatePicker() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMMM yyyy");
+        expenseDatePicker.setConverter(new StringConverter<LocalDate>() {
+            @Override
+            public String toString(LocalDate date) {
+                if (date != null) {
+                    return formatter.format(date);
+                } else {
+                    return "";
+                }
+            }
+
+            @Override
+            public LocalDate fromString(String string) {
+                if (string != null && !string.isEmpty()) {
+                    return LocalDate.parse(string, formatter);
+                } else {
+                    return null;
+                }
+            }
+        });
+        expenseDatePicker.setValue(LocalDate.now());
     }
 
     public void setDialogStage(Stage dialogStage) {
@@ -171,10 +202,11 @@ public class AddExpenseController {
 
         if (expense != null) {
             descriptionField.setText(expense.getDescription());
-            amountField.setText(expense.getAmount().setScale(0, RoundingMode.CEILING).toString());
+            amountField.setText(expense.getAmount().stripTrailingZeros().toPlainString());
             payerComboBox.setValue(expense.getPaidBy());
             paymentModeComboBox.setValue(expense.getPaymentMode());
             categoryComboBox.setValue(expense.getCategory());
+            expenseDatePicker.setValue(expense.getExpenseDate());
             if (saveAndNewButton != null) {
                 saveAndNewButton.setVisible(false);
                 saveAndNewButton.setManaged(false);
@@ -222,6 +254,7 @@ public class AddExpenseController {
                 payerComboBox.getSelectionModel().selectFirst();
             }
             paymentModeComboBox.getSelectionModel().selectFirst();
+            expenseDatePicker.setValue(LocalDate.now());
 
             if (saveAndNewButton != null) {
                 saveAndNewButton.setVisible(true);
@@ -256,7 +289,7 @@ public class AddExpenseController {
                 TextField tf = (TextField) row.getChildren().get(1);
                 UUID userId = (UUID) tf.getUserData();
                 if (currentPayments.containsKey(userId)) {
-                    tf.setText(currentPayments.get(userId).setScale(0, RoundingMode.CEILING).toString());
+                    tf.setText(currentPayments.get(userId).stripTrailingZeros().toPlainString());
                 } else {
                     tf.setText("0");
                 }
@@ -275,7 +308,7 @@ public class AddExpenseController {
                 TextField tf = (TextField) row.getChildren().get(1);
                 UUID userId = (UUID) tf.getUserData();
                 if (currentSplits.containsKey(userId)) {
-                    tf.setText(currentSplits.get(userId).setScale(0, RoundingMode.CEILING).toString());
+                    tf.setText(currentSplits.get(userId).stripTrailingZeros().toPlainString());
                 } else {
                     tf.setText("0");
                 }
@@ -365,12 +398,14 @@ public class AddExpenseController {
                 paymentInputs.put(payerComboBox.getValue().getId(), amount);
             }
 
+            LocalDate expenseDate = expenseDatePicker.getValue();
+
             if (expenseToEdit != null) {
                 expenseService.updateExpense(expenseToEdit.getId(), currentGroup.getId(), paymentInputs, amount,
-                        description, paymentMode, category, splitType, splitInputs);
+                        description, paymentMode, category, expenseDate, splitType, splitInputs);
             } else {
                 expenseService.addExpense(currentGroup.getId(), paymentInputs, amount, description, paymentMode,
-                        category, splitType, splitInputs);
+                        category, expenseDate, splitType, splitInputs);
             }
 
             saveClicked = true;
@@ -398,6 +433,9 @@ public class AddExpenseController {
             } catch (NumberFormatException e) {
                 errorMessage += "No valid amount (must be a number)!\n";
             }
+        }
+        if (expenseDatePicker.getValue() == null) {
+            errorMessage += "No valid date selected!\n";
         }
         if (payerComboBox.getValue() == null) {
             errorMessage += "No valid payer selected!\n";

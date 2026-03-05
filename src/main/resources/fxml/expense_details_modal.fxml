@@ -17,7 +17,8 @@
     <top>
         <VBox spacing="10" BorderPane.alignment="CENTER">
             <Label text="Expense Details" styleClass="title-2"/>
-            <Label fx:id="expenseInfoLabel" text="Description - Amount" styleClass="text-muted, title-4"/>
+            <Label fx:id="expenseInfoLabel" text="Description - Amount" styleClass="title-4"/>
+            <Label fx:id="expenseDateLabel" text="Date" styleClass="text-muted"/>
             <Label text="Mark members who have paid their share:" styleClass="text-muted"/>
         </VBox>
     </top>

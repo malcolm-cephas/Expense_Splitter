@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -35,7 +36,7 @@ public class ExpenseService {
     private UserRepository userRepository;
 
     public Expense addEqualExpense(UUID groupId, UUID paidById, BigDecimal amount, String description,
-            String paymentMode, String category, Set<UUID> involvedMemberIds) {
+            String paymentMode, String category, LocalDate expenseDate, Set<UUID> involvedMemberIds) {
         Group group = groupRepository.findById(groupId).orElseThrow();
         User paidBy = userRepository.findById(paidById).orElseThrow();
 
@@ -43,6 +44,8 @@ public class ExpenseService {
         expense.addPayment(new ExpensePayment(paidBy, amount));
         expense.setPaymentMode(paymentMode);
         expense.setCategory(category);
+        if (expenseDate != null)
+            expense.setExpenseDate(expenseDate);
 
         Set<User> members = group.getMembers();
         Set<User> involvedMembers = members.stream()
@@ -65,7 +68,8 @@ public class ExpenseService {
     }
 
     public Expense updateEqualExpense(UUID expenseId, UUID groupId, UUID paidById, BigDecimal amount,
-            String description, String paymentMode, String category, Set<UUID> involvedMemberIds) {
+            String description, String paymentMode, String category, LocalDate expenseDate,
+            Set<UUID> involvedMemberIds) {
         Expense expense = expenseRepository.findById(expenseId).orElseThrow();
 
         Group group = groupRepository.findById(groupId).orElseThrow();
@@ -103,12 +107,15 @@ public class ExpenseService {
     }
 
     public Expense addExpense(UUID groupId, Map<UUID, BigDecimal> paymentInputs, BigDecimal amount, String description,
-            String paymentMode, String category, SplitType splitType, Map<UUID, BigDecimal> splitInputs) {
+            String paymentMode, String category, LocalDate expenseDate, SplitType splitType,
+            Map<UUID, BigDecimal> splitInputs) {
         Group group = groupRepository.findById(groupId).orElseThrow();
 
         Expense expense = new Expense(group, amount, description, splitType);
         expense.setPaymentMode(paymentMode);
         expense.setCategory(category);
+        if (expenseDate != null)
+            expense.setExpenseDate(expenseDate);
 
         // Add payments
         if (!paymentInputs.isEmpty()) {
@@ -129,13 +136,15 @@ public class ExpenseService {
 
     // For legacy/simple calls with single payer
     public Expense addExpense(UUID groupId, UUID paidById, BigDecimal amount, String description,
-            String paymentMode, String category, SplitType splitType, Map<UUID, BigDecimal> splitInputs) {
+            String paymentMode, String category, LocalDate expenseDate, SplitType splitType,
+            Map<UUID, BigDecimal> splitInputs) {
         Map<UUID, BigDecimal> paymentInputs = java.util.Collections.singletonMap(paidById, amount);
-        return addExpense(groupId, paymentInputs, amount, description, paymentMode, category, splitType, splitInputs);
+        return addExpense(groupId, paymentInputs, amount, description, paymentMode, category, expenseDate, splitType,
+                splitInputs);
     }
 
     public Expense updateExpense(UUID expenseId, UUID groupId, Map<UUID, BigDecimal> paymentInputs, BigDecimal amount,
-            String description, String paymentMode, String category, SplitType splitType,
+            String description, String paymentMode, String category, LocalDate expenseDate, SplitType splitType,
             Map<UUID, BigDecimal> splitInputs) {
         Expense expense = expenseRepository.findById(expenseId).orElseThrow();
         Group group = groupRepository.findById(groupId).orElseThrow();
@@ -145,6 +154,8 @@ public class ExpenseService {
         expense.setPaymentMode(paymentMode);
         expense.setCategory(category);
         expense.setSplitType(splitType);
+        if (expenseDate != null)
+            expense.setExpenseDate(expenseDate);
 
         // Clear and Add new payments
         expense.getPayments().clear();
@@ -169,11 +180,11 @@ public class ExpenseService {
 
     // For legacy/simple calls with single payer
     public Expense updateExpense(UUID expenseId, UUID groupId, UUID paidById, BigDecimal amount,
-            String description, String paymentMode, String category, SplitType splitType,
+            String description, String paymentMode, String category, LocalDate expenseDate, SplitType splitType,
             Map<UUID, BigDecimal> splitInputs) {
         Map<UUID, BigDecimal> paymentInputs = java.util.Collections.singletonMap(paidById, amount);
-        return updateExpense(expenseId, groupId, paymentInputs, amount, description, paymentMode, category, splitType,
-                splitInputs);
+        return updateExpense(expenseId, groupId, paymentInputs, amount, description, paymentMode, category, expenseDate,
+                splitType, splitInputs);
     }
 
     private void calculateAndAddSplits(Expense expense, SplitType splitType, Map<UUID, BigDecimal> splitInputs,
@@ -188,14 +199,14 @@ public class ExpenseService {
             if (involved.isEmpty())
                 throw new IllegalStateException("No members selected for equal split.");
 
-            BigDecimal splitAmount = totalAmount.divide(new BigDecimal(involved.size()), 0, RoundingMode.CEILING);
+            BigDecimal splitAmount = totalAmount.divide(new BigDecimal(involved.size()), 2, RoundingMode.HALF_UP);
             for (User member : involved) {
                 expense.addSplit(new ExpenseSplit(member, splitAmount));
             }
         } else if (splitType == SplitType.EXACT) {
             for (User member : allMembers) {
-                BigDecimal share = splitInputs.getOrDefault(member.getId(), BigDecimal.ZERO).setScale(0,
-                        RoundingMode.CEILING);
+                BigDecimal share = splitInputs.getOrDefault(member.getId(), BigDecimal.ZERO).setScale(2,
+                        RoundingMode.HALF_UP);
                 if (share.compareTo(BigDecimal.ZERO) > 0) {
                     expense.addSplit(new ExpenseSplit(member, share));
                 }
@@ -204,8 +215,8 @@ public class ExpenseService {
             for (User member : allMembers) {
                 BigDecimal percent = splitInputs.getOrDefault(member.getId(), BigDecimal.ZERO);
                 if (percent.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal share = totalAmount.multiply(percent).divide(new BigDecimal("100"), 0,
-                            RoundingMode.CEILING);
+                    BigDecimal share = totalAmount.multiply(percent).divide(new BigDecimal("100"), 2,
+                            RoundingMode.HALF_UP);
                     expense.addSplit(new ExpenseSplit(member, share));
                 }
             }
@@ -218,7 +229,7 @@ public class ExpenseService {
             for (User member : allMembers) {
                 BigDecimal memberShares = splitInputs.getOrDefault(member.getId(), BigDecimal.ZERO);
                 if (memberShares.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal share = shareValue.multiply(memberShares).setScale(0, RoundingMode.CEILING);
+                    BigDecimal share = shareValue.multiply(memberShares).setScale(2, RoundingMode.HALF_UP);
                     expense.addSplit(new ExpenseSplit(member, share));
                 }
             }
