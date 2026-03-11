@@ -12,12 +12,12 @@
 # 📸 Screenshots
 
 <p align="center">
-  <img src="assets/dashboard.png" width="45%" alt="Dashboard" />
-  <img src="assets/add_expense.png" width="45%" alt="Add Expense" />
-</p>
+  <img src="assets/dashboard.png" width="100%" alt="Dashboard" />
+  </p>
 <p align="center">
-  <img src="assets/statistics.png" width="45%" alt="Statistics" />
-  <img src="assets/settle_up.png" width="45%" alt="Settle Up" />
+  <img src="assets/add_expense.png" width="33%" alt="Add Expense" />
+  <img src="assets/settle_up.png" width="33%" alt="Settle Up" />
+  <img src="assets/statistics.png" width="33%" alt="Statistics" />
 </p>
 
 ---
