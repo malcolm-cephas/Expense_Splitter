@@ -15,9 +15,9 @@
   <img src="assets/dashboard.png" width="100%" alt="Dashboard" />
   </p>
 <p align="center">
-  <img src="assets/add_expense.png" width="33%" alt="Add Expense" />
-  <img src="assets/settle_up.png" width="33%" alt="Settle Up" />
-  <img src="assets/statistics.png" width="33%" alt="Statistics" />
+  <img src="assets/add_expense.png" width="23%" alt="Add Expense" />
+  <img src="assets/settle_up.png" width="23%" alt="Settle Up" />
+  <img src="assets/statistics.png" width="23%" alt="Statistics" />
 </p>
 
 ---
