@@ -30,7 +30,10 @@
                 <TextField fx:id="descriptionField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
                 
                 <Label text="Amount:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                <TextField fx:id="amountField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                <HBox spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                    <TextField fx:id="amountField" HBox.hgrow="ALWAYS"/>
+                    <ComboBox fx:id="currencyComboBox" prefWidth="100"/>
+                </HBox>
                 
                 <Label text="Paid by:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
                 <ComboBox fx:id="payerComboBox" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="2"/>

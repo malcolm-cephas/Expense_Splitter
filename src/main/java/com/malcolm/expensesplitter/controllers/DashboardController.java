@@ -106,22 +106,58 @@ public class DashboardController {
         // Fetch first user or prompt to create one
         Optional<com.malcolm.expensesplitter.models.User> firstUser = userRepository.findAll().stream().findFirst();
         if (firstUser.isPresent()) {
-            currentUserId = firstUser.get().getId();
+            com.malcolm.expensesplitter.models.User user = firstUser.get();
+            currentUserId = user.getId();
+
+            // Migrate user preference if null
+            if (user.getCurrencyPreference() == null || user.getCurrencyPreference().isEmpty()) {
+                user.setCurrencyPreference("INR");
+                userRepository.save(user);
+            }
+
+            appConfig.setCurrencyCode(user.getCurrencyPreference());
+
+            // One-time migration for existing expenses without currency
+            List<com.malcolm.expensesplitter.models.Expense> expenses = expenseRepository.findAll();
+            boolean migrated = false;
+            for (com.malcolm.expensesplitter.models.Expense e : expenses) {
+                if (e.getCurrency() == null || e.getCurrency().isEmpty()) {
+                    e.setCurrency("INR");
+                    migrated = true;
+                }
+            }
+            if (migrated) {
+                expenseRepository.saveAll(expenses);
+            }
         } else {
-            // No users exist, prompt for name
+            // No users exist, prompt for name and currency selection
             javafx.application.Platform.runLater(() -> {
-                TextInputDialog dialog = new TextInputDialog();
-                dialog.setTitle("Welcome to Expense Splitter");
-                dialog.setHeaderText("Create your user profile");
-                dialog.setContentText("Please enter your name:");
-                Optional<String> result = dialog.showAndWait();
-                result.ifPresent(name -> {
+                TextInputDialog nameDialog = new TextInputDialog();
+                nameDialog.setTitle("Welcome to Expense Splitter");
+                nameDialog.setHeaderText("Create your user profile");
+                nameDialog.setContentText("Please enter your name:");
+
+                Optional<String> nameResult = nameDialog.showAndWait();
+                nameResult.ifPresent(name -> {
                     if (!name.trim().isEmpty()) {
+                        javafx.scene.control.ChoiceDialog<String> currencyDialog = new javafx.scene.control.ChoiceDialog<>(
+                                "INR",
+                                java.util.Arrays.asList("INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD", "AED"));
+                        currencyDialog.setTitle("Initial Setup");
+                        currencyDialog.setHeaderText("Select your primary currency");
+                        currencyDialog.setContentText("This will be your default for new expenses:");
+
+                        Optional<String> currencyResult = currencyDialog.showAndWait();
+                        String chosenCurrency = currencyResult.orElse("INR");
+
                         com.malcolm.expensesplitter.models.User newUser = new com.malcolm.expensesplitter.models.User(
                                 name.trim(), name.trim().toLowerCase().replace(" ", "") + "@example.com",
-                                appConfig.getCurrencyCode());
+                                chosenCurrency);
                         userRepository.save(newUser);
                         currentUserId = newUser.getId();
+                        appConfig.setCurrencyCode(chosenCurrency);
+                        // Optionally update appConfig if needed, but the app should ideally
+                        // use the current user's preference for group views.
                     }
                 });
             });

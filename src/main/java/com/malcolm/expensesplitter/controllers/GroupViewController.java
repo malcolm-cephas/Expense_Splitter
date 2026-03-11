@@ -110,9 +110,12 @@ public class GroupViewController {
                     String date = item.getExpenseDate() != null
                             ? " (" + item.getExpenseDate().format(DateTimeFormatter.ofPattern("dd MMMM yyyy")) + ")"
                             : "";
-                    setText(item.getDescription() + category + " - " + appConfig.getCurrencySymbol() + item.getAmount()
+                    String currency = item.getCurrency() != null && !item.getCurrency().isEmpty() ? item.getCurrency()
+                            : "INR";
+                    String symbol = appConfig.getSymbol(currency);
+                    setText(item.getDescription() + category + " - " + symbol + item.getAmount()
                             .stripTrailingZeros().toPlainString() + " "
-                            + item.getCurrency() + mode + date);
+                            + currency + mode + date);
                     // Ensure the item is selected on right click
                     setOnMousePressed(event -> {
                         if (event.isSecondaryButtonDown()) {

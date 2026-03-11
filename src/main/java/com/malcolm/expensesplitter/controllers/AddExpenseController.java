@@ -11,6 +11,7 @@ import javafx.stage.Stage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
+import com.malcolm.expensesplitter.config.AppConfig;
 
 import java.math.BigDecimal;
 import com.malcolm.expensesplitter.models.Expense;
@@ -32,6 +33,9 @@ public class AddExpenseController {
     @Autowired
     private ExpenseService expenseService;
 
+    @Autowired
+    private AppConfig appConfig;
+
     @FXML
     private TextField descriptionField;
 
@@ -42,9 +46,12 @@ public class AddExpenseController {
     private ComboBox<User> payerComboBox;
 
     @FXML
+    private ComboBox<String> currencyComboBox;
+
+    @FXML
     private javafx.scene.layout.VBox multiplePayersContainer;
 
-    private User multiplePayersSentinel = new User("Multiple Payers...", "multp@splitter.internal", "INR");
+    private User multiplePayersSentinel;
 
     @FXML
     private ComboBox<String> paymentModeComboBox;
@@ -109,6 +116,17 @@ public class AddExpenseController {
                 handlePayerSelection(newVal);
             }
         });
+
+        currencyComboBox.setItems(
+                FXCollections.observableArrayList("INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD", "AED"));
+        if (appConfig != null && appConfig.getCurrencyCode() != null) {
+            currencyComboBox.getSelectionModel().select(appConfig.getCurrencyCode());
+            multiplePayersSentinel = new User("Multiple Payers...", "multp@splitter.internal",
+                    appConfig.getCurrencyCode());
+        } else {
+            currencyComboBox.getSelectionModel().selectFirst();
+            multiplePayersSentinel = new User("Multiple Payers...", "multp@splitter.internal", "INR");
+        }
 
         paymentModeComboBox
                 .setItems(FXCollections.observableArrayList("Cash", "UPI", "Card", "Bank Transfer", "Other"));
@@ -207,6 +225,11 @@ public class AddExpenseController {
             paymentModeComboBox.setValue(expense.getPaymentMode());
             categoryComboBox.setValue(expense.getCategory());
             expenseDatePicker.setValue(expense.getExpenseDate());
+            if (expense.getCurrency() != null && !expense.getCurrency().isEmpty()) {
+                currencyComboBox.setValue(expense.getCurrency());
+            } else {
+                currencyComboBox.getSelectionModel().selectFirst();
+            }
             if (saveAndNewButton != null) {
                 saveAndNewButton.setVisible(false);
                 saveAndNewButton.setManaged(false);
@@ -254,6 +277,7 @@ public class AddExpenseController {
                 payerComboBox.getSelectionModel().selectFirst();
             }
             paymentModeComboBox.getSelectionModel().selectFirst();
+            currencyComboBox.getSelectionModel().selectFirst();
             expenseDatePicker.setValue(LocalDate.now());
 
             if (saveAndNewButton != null) {
@@ -399,13 +423,14 @@ public class AddExpenseController {
             }
 
             LocalDate expenseDate = expenseDatePicker.getValue();
+            String currency = currencyComboBox.getValue();
 
             if (expenseToEdit != null) {
                 expenseService.updateExpense(expenseToEdit.getId(), currentGroup.getId(), paymentInputs, amount,
-                        description, paymentMode, category, expenseDate, splitType, splitInputs);
+                        description, paymentMode, category, expenseDate, splitType, splitInputs, currency);
             } else {
                 expenseService.addExpense(currentGroup.getId(), paymentInputs, amount, description, paymentMode,
-                        category, expenseDate, splitType, splitInputs);
+                        category, expenseDate, splitType, splitInputs, currency);
             }
 
             saveClicked = true;

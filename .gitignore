@@ -20,14 +20,31 @@ out/
 # VS Code
 .vscode/
 
-# H2 Database
+# Eclipse
+.settings/
+.project
+.classpath
+bin/
+
+# H2 Database & Local Storage
 data/
 *.db
+exchange_rates.json
+*.mv.db
+*.trace.db
 
-# OS
+# OS Files
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Logs
+# Logs & Temp
 logs/
 *.log
+*.tmp
+*.bak
+*.swp
+
+# Others
+.directory
+.gemini/

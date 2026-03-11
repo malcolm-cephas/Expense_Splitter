@@ -22,6 +22,12 @@ public class SettlementService {
     @Autowired
     private ExpenseRepository expenseRepository;
 
+    @Autowired
+    private ExchangeRateService exchangeRateService;
+
+    @Autowired
+    private com.malcolm.expensesplitter.config.AppConfig appConfig;
+
     /**
      * Internal node representing a user's net balance.
      */
@@ -51,6 +57,14 @@ public class SettlementService {
             if (totalExpenseAmount.compareTo(BigDecimal.ZERO) <= 0)
                 continue;
 
+            String expenseCurrency = expense.getCurrency();
+            String baseCurrency = appConfig.getCurrencyCode();
+            BigDecimal rate = BigDecimal.ONE;
+            if (expenseCurrency != null && !expenseCurrency.isEmpty()
+                    && !expenseCurrency.equalsIgnoreCase(baseCurrency)) {
+                rate = exchangeRateService.getExchangeRate(expenseCurrency, baseCurrency);
+            }
+
             // 1. Calculate how much of this expense is still unpaid across all members
             BigDecimal totalUnpaidInExpense = BigDecimal.ZERO;
             for (ExpenseSplit split : expense.getSplits()) {
@@ -70,6 +84,8 @@ public class SettlementService {
                 BigDecimal credit = totalUnpaidInExpense.multiply(payerContribution)
                         .divide(totalExpenseAmount, 4, RoundingMode.HALF_UP);
 
+                credit = credit.multiply(rate);
+
                 balances.put(payerId, balances.getOrDefault(payerId, BigDecimal.ZERO).add(credit));
             }
 
@@ -79,6 +95,7 @@ public class SettlementService {
                 BigDecimal unpaid = split.getOwedAmount().subtract(split.getPaidAmount());
 
                 if (unpaid.compareTo(BigDecimal.ZERO) > 0) {
+                    unpaid = unpaid.multiply(rate);
                     balances.put(debtorId, balances.getOrDefault(debtorId, BigDecimal.ZERO).subtract(unpaid));
                 }
             }

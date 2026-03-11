@@ -52,8 +52,12 @@ public class ExpenseDetailsController {
             payerText = "Paid by " + (expense.getPaidBy() != null ? expense.getPaidBy().getName() : "Unknown");
         }
 
+        String currency = expense.getCurrency() != null && !expense.getCurrency().isEmpty() ? expense.getCurrency()
+                : "INR";
+        String symbol = appConfig.getSymbol(currency);
         expenseInfoLabel.setText(
-                expense.getDescription() + " - " + appConfig.getCurrencySymbol() + expense.getAmount() + " ("
+                expense.getDescription() + " - " + symbol + expense.getAmount() + " " + currency
+                        + " ("
                         + payerText + ")");
 
         if (expense.getExpenseDate() != null) {
@@ -71,9 +75,13 @@ public class ExpenseDetailsController {
             HBox row = new HBox(15);
             row.setAlignment(Pos.CENTER_LEFT);
 
+            String currency = currentExpense.getCurrency() != null && !currentExpense.getCurrency().isEmpty()
+                    ? currentExpense.getCurrency()
+                    : "INR";
+            String symbol = appConfig.getSymbol(currency);
             Label infoLabel = new Label(
-                    split.getUser().getName() + " owes " + appConfig.getCurrencySymbol()
-                            + split.getOwedAmount().stripTrailingZeros().toPlainString());
+                    split.getUser().getName() + " owes " + symbol
+                            + split.getOwedAmount().stripTrailingZeros().toPlainString() + " " + currency);
             infoLabel.setPrefWidth(250);
 
             TextField paidField = new TextField(split.getPaidAmount().stripTrailingZeros().toPlainString());

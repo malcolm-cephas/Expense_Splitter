@@ -108,12 +108,13 @@ public class ExpenseService {
 
     public Expense addExpense(UUID groupId, Map<UUID, BigDecimal> paymentInputs, BigDecimal amount, String description,
             String paymentMode, String category, LocalDate expenseDate, SplitType splitType,
-            Map<UUID, BigDecimal> splitInputs) {
+            Map<UUID, BigDecimal> splitInputs, String currency) {
         Group group = groupRepository.findById(groupId).orElseThrow();
 
         Expense expense = new Expense(group, amount, description, splitType);
         expense.setPaymentMode(paymentMode);
         expense.setCategory(category);
+        expense.setCurrency(currency);
         if (expenseDate != null)
             expense.setExpenseDate(expenseDate);
 
@@ -137,15 +138,15 @@ public class ExpenseService {
     // For legacy/simple calls with single payer
     public Expense addExpense(UUID groupId, UUID paidById, BigDecimal amount, String description,
             String paymentMode, String category, LocalDate expenseDate, SplitType splitType,
-            Map<UUID, BigDecimal> splitInputs) {
+            Map<UUID, BigDecimal> splitInputs, String currency) {
         Map<UUID, BigDecimal> paymentInputs = java.util.Collections.singletonMap(paidById, amount);
         return addExpense(groupId, paymentInputs, amount, description, paymentMode, category, expenseDate, splitType,
-                splitInputs);
+                splitInputs, currency);
     }
 
     public Expense updateExpense(UUID expenseId, UUID groupId, Map<UUID, BigDecimal> paymentInputs, BigDecimal amount,
             String description, String paymentMode, String category, LocalDate expenseDate, SplitType splitType,
-            Map<UUID, BigDecimal> splitInputs) {
+            Map<UUID, BigDecimal> splitInputs, String currency) {
         Expense expense = expenseRepository.findById(expenseId).orElseThrow();
         Group group = groupRepository.findById(groupId).orElseThrow();
 
@@ -154,6 +155,7 @@ public class ExpenseService {
         expense.setPaymentMode(paymentMode);
         expense.setCategory(category);
         expense.setSplitType(splitType);
+        expense.setCurrency(currency);
         if (expenseDate != null)
             expense.setExpenseDate(expenseDate);
 
@@ -181,10 +183,10 @@ public class ExpenseService {
     // For legacy/simple calls with single payer
     public Expense updateExpense(UUID expenseId, UUID groupId, UUID paidById, BigDecimal amount,
             String description, String paymentMode, String category, LocalDate expenseDate, SplitType splitType,
-            Map<UUID, BigDecimal> splitInputs) {
+            Map<UUID, BigDecimal> splitInputs, String currency) {
         Map<UUID, BigDecimal> paymentInputs = java.util.Collections.singletonMap(paidById, amount);
         return updateExpense(expenseId, groupId, paymentInputs, amount, description, paymentMode, category, expenseDate,
-                splitType, splitInputs);
+                splitType, splitInputs, currency);
     }
 
     private void calculateAndAddSplits(Expense expense, SplitType splitType, Map<UUID, BigDecimal> splitInputs,
