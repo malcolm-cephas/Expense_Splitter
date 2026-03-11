@@ -62,7 +62,15 @@ public class DashboardController {
     @FXML
     private VBox mainContentArea;
 
+    @FXML
+    private TextField currencySearchField;
+
+    private ListView<String> currencySearchResults = new ListView<>();
+    private javafx.stage.Popup currencyPopup = new javafx.stage.Popup();
+
     private ObservableList<Group> groupsObservable = FXCollections.observableArrayList();
+    private ObservableList<String> allCurrencies = FXCollections.observableArrayList();
+    private ObservableList<String> filteredCurrencies = FXCollections.observableArrayList();
 
     // Default user ID for testing since we don't have auth yet
     private UUID currentUserId;
@@ -172,8 +180,21 @@ public class DashboardController {
                 super.updateItem(item, empty);
                 if (empty || item == null || item.getName() == null) {
                     setText(null);
+                    setContextMenu(null);
                 } else {
                     setText(item.getName());
+                    
+                    // Add context menu for CRUD
+                    javafx.scene.control.ContextMenu contextMenu = new javafx.scene.control.ContextMenu();
+                    javafx.scene.control.MenuItem renameItem = new javafx.scene.control.MenuItem("Rename Group");
+                    renameItem.setOnAction(e -> handleRenameGroup(item));
+                    
+                    javafx.scene.control.MenuItem deleteItem = new javafx.scene.control.MenuItem("Delete Group");
+                    deleteItem.setStyle("-fx-text-fill: red;");
+                    deleteItem.setOnAction(e -> handleDeleteGroup(item));
+                    
+                    contextMenu.getItems().addAll(renameItem, deleteItem);
+                    setContextMenu(contextMenu);
                 }
             }
         });
@@ -185,7 +206,97 @@ public class DashboardController {
         });
 
         // Load groups later when auth is injected, for now, we'll try to load all
+        // Load groups later when auth is injected, for now, we'll try to load all
         refreshGroups();
+        setupSearchableCurrency();
+    }
+
+    private void setupSearchableCurrency() {
+        // Configure the ListView for the popup
+        currencySearchResults.setPrefHeight(250.0);
+        currencySearchResults.setPrefWidth(250.0);
+        currencySearchResults.getStyleClass().add("popover");
+        currencySearchResults.setFixedCellSize(35);
+        currencySearchResults.setItems(filteredCurrencies);
+        
+        currencyPopup.getContent().add(currencySearchResults);
+        currencyPopup.setAutoHide(true);
+
+        // Build a mapping of Currency Code (Country)
+        java.util.Locale[] locales = java.util.Locale.getAvailableLocales();
+        java.util.Set<String> entries = new java.util.HashSet<>();
+        for (java.util.Locale locale : locales) {
+            try {
+                java.util.Currency currency = java.util.Currency.getInstance(locale);
+                String country = locale.getDisplayCountry();
+                if (!country.isEmpty()) {
+                    entries.add(currency.getCurrencyCode() + " (" + country + ")");
+                }
+            } catch (Exception e) {}
+        }
+        allCurrencies.setAll(entries);
+        FXCollections.sort(allCurrencies);
+        filteredCurrencies.setAll(allCurrencies);
+
+        if (appConfig != null && appConfig.getCurrencyCode() != null) {
+            currencySearchField.setText(appConfig.getCurrencyCode());
+        }
+
+        // Search logic
+        currencySearchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            String search = (newVal == null) ? "" : newVal.toUpperCase();
+            List<String> matches = allCurrencies.stream()
+                    .filter(c -> c.toUpperCase().contains(search))
+                    .collect(java.util.stream.Collectors.toList());
+            filteredCurrencies.setAll(matches);
+            
+            if (!matches.isEmpty() && currencySearchField.isFocused()) {
+                showCurrencyPopup();
+            } else {
+                currencyPopup.hide();
+            }
+        });
+
+        // Toggle on focus
+        currencySearchField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal && !filteredCurrencies.isEmpty()) {
+                showCurrencyPopup();
+            } else {
+                // Focus lost: hide popup
+                currencyPopup.hide();
+            }
+        });
+
+        // Selection logic
+        currencySearchResults.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                String code = newVal.substring(0, 3);
+                updateDefaultCurrency(code);
+                currencySearchField.setText(code);
+                currencyPopup.hide();
+            }
+        });
+    }
+
+    private void showCurrencyPopup() {
+        if (!currencyPopup.isShowing() && currencySearchField.getScene() != null) {
+            javafx.geometry.Point2D pos = currencySearchField.localToScreen(0, currencySearchField.getHeight());
+            currencyPopup.show(currencySearchField, pos.getX(), pos.getY() + 5);
+        }
+    }
+
+    private void updateDefaultCurrency(String currencyCode) {
+        if (currentUserId != null) {
+            com.malcolm.expensesplitter.models.User user = userRepository.findById(currentUserId).orElse(null);
+            if (user != null) {
+                user.setCurrencyPreference(currencyCode);
+                userRepository.save(user);
+                appConfig.setCurrencyCode(currencyCode);
+                
+                // Show a small confirmation toast or alert would be nice, but simple update is fine
+                System.out.println("Default currency updated to: " + currencyCode);
+            }
+        }
     }
 
     @FXML
@@ -200,6 +311,36 @@ public class DashboardController {
 
     private void refreshGroups() {
         groupsObservable.setAll(groupService.getAllGroups());
+    }
+
+    private void handleRenameGroup(Group group) {
+        javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog(group.getName());
+        dialog.setTitle("Rename Group");
+        dialog.setHeaderText("Change group name");
+        dialog.setContentText("Enter new name:");
+        
+        java.util.Optional<String> result = dialog.showAndWait();
+        result.ifPresent(newName -> {
+            if (!newName.trim().isEmpty()) {
+                groupService.updateGroup(group.getId(), newName.trim());
+                refreshGroups();
+            }
+        });
+    }
+
+    private void handleDeleteGroup(Group group) {
+        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Delete Group");
+        alert.setHeaderText("Confirm Deletion");
+        alert.setContentText("Are you sure you want to delete '" + group.getName() + "'? This will delete all associated expenses.");
+        
+        java.util.Optional<javafx.scene.control.ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == javafx.scene.control.ButtonType.OK) {
+            groupService.deleteGroup(group.getId());
+            mainContentArea.getChildren().clear();
+            mainContentArea.getChildren().add(new javafx.scene.control.Label("Group deleted. Select another group."));
+            refreshGroups();
+        }
     }
 
     private void loadGroupView(UUID groupId) {

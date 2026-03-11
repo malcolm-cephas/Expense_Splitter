@@ -48,9 +48,10 @@ public class SettleUpController {
                     User to = userRepository.findById(item.getTo()).orElse(null);
                     String fromName = from != null ? from.getName() : "Unknown";
                     String toName = to != null ? to.getName() : "Unknown";
-
-                    setText(fromName + " needs to pay " + toName + " : " + appConfig.getCurrencySymbol()
-                            + item.getAmount());
+                    String currencyCode = appConfig.getCurrencyCode();
+                    String symbol = appConfig.getSymbol(currencyCode);
+                    setText(fromName + " needs to pay " + toName + " : " + symbol + " " 
+                            + item.getAmount() + " " + currencyCode);
                 }
             }
         });

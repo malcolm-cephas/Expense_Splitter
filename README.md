@@ -9,6 +9,29 @@
 
 ---
 
+# 📸 Screenshots
+
+<p align="center">
+  <img src="assets/dashboard.png" width="45%" alt="Dashboard" />
+  <img src="assets/add_expense.png" width="45%" alt="Add Expense" />
+</p>
+<p align="center">
+  <img src="assets/statistics.png" width="45%" alt="Statistics" />
+  <img src="assets/settle_up.png" width="45%" alt="Settle Up" />
+</p>
+
+---
+
+# 📄 Sample Reports
+
+Experience the precision of our multicurrency reporting with these sample exports from an international trip:
+
+- 🇪🇺 [Euro Trip 2024 - Euro Report](assets/Euro_Trip_2024_Euro_Report.pdf)
+- 🇮🇳 [Euro Trip 2024 - INR Report](assets/Euro_Trip_2024_INR_Report.pdf)
+- 🇺🇸 [Euro Trip 2024 - USD Report](assets/Euro_Trip_2024_USD_Report.pdf)
+
+---
+
 # ✨ Key Features
 
 ### 👥 Effortless Group Management
@@ -347,3 +370,5 @@ See the [LICENSE](LICENSE) file for details.
 
 *Malcolm Cephas*
 - GitHub: [@malcolm-cephas](https://github.com/malcolm-cephas)
+
+---

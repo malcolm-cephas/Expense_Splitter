@@ -63,6 +63,16 @@ public class GroupService {
         return groupRepository.save(group);
     }
 
+    public Group updateGroup(UUID groupId, String newName) {
+        Group group = groupRepository.findById(groupId).orElseThrow();
+        group.setName(newName);
+        return groupRepository.save(group);
+    }
+
+    public void deleteGroup(UUID groupId) {
+        groupRepository.deleteById(groupId);
+    }
+
     public List<Group> getAllGroups() {
         return groupRepository.findAll();
     }

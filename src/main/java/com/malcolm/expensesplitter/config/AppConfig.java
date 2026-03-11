@@ -1,14 +1,21 @@
 package com.malcolm.expensesplitter.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import java.util.Map;
 
 @Component
 public class AppConfig {
 
-    private String currencyCode = "INR";
-    private String currencySymbol = "\u20B9";
+    @Value("${app.currency.code:INR}")
+    private String systemBaseCode;
 
-    private static final java.util.Map<String, String> SYMBOLS = java.util.Map.of(
+    @Value("${app.currency.symbol:\u20B9}")
+    private String systemBaseSymbol;
+
+    private String userPreferredCode;
+
+    private static final Map<String, String> SYMBOLS = Map.of(
             "INR", "\u20B9",
             "USD", "$",
             "EUR", "\u20AC",
@@ -24,25 +31,32 @@ public class AppConfig {
     }
 
     public String getCurrencyCode() {
-        return currencyCode;
+        // Default to user preference if set, else system code
+        return userPreferredCode != null ? userPreferredCode : systemBaseCode;
+    }
+
+    /**
+     * Use this for core calculation base (always respect system-wide default)
+     */
+    public String getSystemBaseCode() {
+        return systemBaseCode != null ? systemBaseCode : "INR";
     }
 
     public void setCurrencyCode(String currencyCode) {
-        this.currencyCode = currencyCode;
-        this.currencySymbol = SYMBOLS.getOrDefault(currencyCode, currencyCode);
+        this.userPreferredCode = currencyCode;
     }
 
     public String getCurrencySymbol() {
-        return currencySymbol;
+        return getSymbol(getCurrencyCode());
     }
 
-    public void setCurrencySymbol(String currencySymbol) {
-        this.currencySymbol = currencySymbol;
+    public String getSystemBaseSymbol() {
+        return systemBaseSymbol != null ? systemBaseSymbol : "\u20B9";
     }
 
     public String getSymbol(String code) {
         if (code == null)
-            return currencySymbol;
+            return systemBaseSymbol;
         return SYMBOLS.getOrDefault(code.toUpperCase(), code);
     }
 }

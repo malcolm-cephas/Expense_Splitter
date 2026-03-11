@@ -196,7 +196,10 @@ public class AddExpenseController {
                 // Exact Tab
                 exactAmountContainer.getChildren().add(createInputRow(member, "0"));
                 // Percentage Tab
-                percentageContainer.getChildren().add(createInputRow(member, "0"));
+                javafx.scene.layout.HBox percentageRow = createInputRow(member, "0");
+                TextField ptf = (TextField) percentageRow.getChildren().get(1);
+                ptf.textProperty().addListener((obs, oldVal, newVal) -> handlePercentageAdjustment(ptf, group.getMembers().size()));
+                percentageContainer.getChildren().add(percentageRow);
                 // Shares Tab
                 sharesContainer.getChildren().add(createInputRow(member, "1"));
             }
@@ -292,12 +295,24 @@ public class AddExpenseController {
                         cb.setSelected(true);
                 }
             }
-            multiplePayersContainer.getChildren().clear();
+            // Reset row values to 0 instead of clearing children
+            if (multiplePayersContainer != null) {
+                for (javafx.scene.Node node : multiplePayersContainer.getChildren()) {
+                    if (node instanceof javafx.scene.layout.HBox row) {
+                        javafx.scene.control.TextField tf = (javafx.scene.control.TextField) row.getChildren().get(1);
+                        tf.setText("0");
+                    }
+                }
+            }
         }
     }
 
     private void handlePayerSelection(User selectedPayer) {
-        boolean isMultiple = selectedPayer.equals(multiplePayersSentinel);
+        // Use identity check or specific email check for the sentinel
+        boolean isMultiple = selectedPayer != null && 
+                           (selectedPayer == multiplePayersSentinel || 
+                            "multp@splitter.internal".equals(selectedPayer.getEmail()));
+        
         multiplePayersContainer.setVisible(isMultiple);
         multiplePayersContainer.setManaged(isMultiple);
     }
@@ -346,17 +361,37 @@ public class AddExpenseController {
 
     @FXML
     private void handleSave() {
-        if (saveInternal()) {
-            dialogStage.close();
+        try {
+            if (saveInternal()) {
+                dialogStage.close();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.initOwner(dialogStage);
+            alert.setTitle("Error Saving Expense");
+            alert.setHeaderText("Database or Logic Error");
+            alert.setContentText("The expense could not be saved. This often happens if the database schema is out of date or a value is invalid.\n\nError: " + e.getMessage());
+            alert.showAndWait();
         }
     }
 
     @FXML
     private void handleSaveAndNew() {
-        if (saveInternal()) {
-            // Reset for next entry
-            setExpenseToEdit(null);
-            descriptionField.requestFocus();
+        try {
+            if (saveInternal()) {
+                // Reset for next entry
+                setExpenseToEdit(null);
+                descriptionField.requestFocus();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.initOwner(dialogStage);
+            alert.setTitle("Error Saving Expense");
+            alert.setHeaderText("Database Error");
+            alert.setContentText("Check if all fields are correct and the amount is positive.\n\nError: " + e.getMessage());
+            alert.showAndWait();
         }
     }
 
@@ -454,7 +489,10 @@ public class AddExpenseController {
             errorMessage += "No valid amount!\n";
         } else {
             try {
-                new BigDecimal(amountField.getText());
+                BigDecimal amount = new BigDecimal(amountField.getText());
+                if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                    errorMessage += "Amount must be greater than zero!\n";
+                }
             } catch (NumberFormatException e) {
                 errorMessage += "No valid amount (must be a number)!\n";
             }
@@ -536,6 +574,36 @@ public class AddExpenseController {
             alert.setContentText(errorMessage);
             alert.showAndWait();
             return false;
+        }
+    }
+
+    private void handlePercentageAdjustment(TextField changedField, int totalMembers) {
+        if (changedField.isFocused()) {
+            try {
+                BigDecimal currentTotal = BigDecimal.ZERO;
+                TextField targetField = null;
+                int zeroCount = 0;
+
+                for (javafx.scene.Node node : percentageContainer.getChildren()) {
+                    if (node instanceof javafx.scene.layout.HBox row) {
+                        TextField tf = (TextField) row.getChildren().get(1);
+                        BigDecimal val = new BigDecimal(tf.getText().isEmpty() ? "0" : tf.getText());
+                        currentTotal = currentTotal.add(val);
+                        if (val.compareTo(BigDecimal.ZERO) == 0 && tf != changedField) {
+                            targetField = tf;
+                            zeroCount++;
+                        }
+                    }
+                }
+
+                // If only one field is left at zero, auto-fill it to reach 100%
+                if (zeroCount == 1 && targetField != null && currentTotal.compareTo(new BigDecimal("100")) < 0) {
+                    BigDecimal remaining = new BigDecimal("100").subtract(currentTotal);
+                    targetField.setText(remaining.toPlainString());
+                }
+            } catch (Exception e) {
+                // Ignore parsing errors during typing
+            }
         }
     }
 }

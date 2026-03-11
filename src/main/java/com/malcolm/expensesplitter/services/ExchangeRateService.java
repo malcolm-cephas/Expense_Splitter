@@ -21,11 +21,14 @@ public class ExchangeRateService {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final Map<String, BigDecimal> rateCache = new ConcurrentHashMap<>();
+    private final java.util.Set<String> attemptedCurrenciesToday = ConcurrentHashMap.newKeySet();
     private LocalDate lastFetchDate;
     private final File cacheFile = new File("exchange_rates.json");
 
     public ExchangeRateService(ObjectMapper objectMapper) {
-        this.httpClient = HttpClient.newHttpClient();
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(5))
+                .build();
         this.objectMapper = objectMapper;
         loadCacheFromFile();
     }
@@ -83,9 +86,10 @@ public class ExchangeRateService {
             return rateCache.get(cacheKey);
         }
 
-        // If not in cache and we didn't fetch yet, try fetching specifically for 'from'
-        if (!didFetch) {
+        // If not in cache and we haven't attempted this currency yet today
+        if (!attemptedCurrenciesToday.contains(from)) {
             didFetch = fetchAndCache(from);
+            attemptedCurrenciesToday.add(from);
             if (didFetch) {
                 lastFetchDate = LocalDate.now();
                 saveCacheToFile();
@@ -96,11 +100,23 @@ public class ExchangeRateService {
     }
 
     private boolean fetchAndCache(String from) {
+        String primaryUrl = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/" + from
+                + ".json";
+        String fallbackUrl = "https://latest.currency-api.pages.dev/v1/currencies/" + from + ".json";
+
+        if (tryFetch(primaryUrl, from)) {
+            return true;
+        }
+
+        System.out.println("Primary currency API failed, trying fallback...");
+        return tryFetch(fallbackUrl, from);
+    }
+
+    private boolean tryFetch(String url, String from) {
         try {
-            String url = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/" + from
-                    + ".json";
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
+                    .timeout(java.time.Duration.ofSeconds(5))
                     .GET()
                     .build();
 
@@ -120,11 +136,11 @@ public class ExchangeRateService {
                                     BigDecimal.ONE.divide(rate, 6, java.math.RoundingMode.HALF_UP));
                         }
                     });
-                    return true; // Successfully updated
+                    return true;
                 }
             }
         } catch (Exception e) {
-            System.err.println("Failed to fetch exchange rates for " + from + ": " + e.getMessage());
+            System.err.println("Failed to fetch from " + url + ": " + e.getMessage());
         }
         return false;
     }

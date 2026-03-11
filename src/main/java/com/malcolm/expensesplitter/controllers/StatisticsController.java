@@ -53,7 +53,7 @@ public class StatisticsController {
 
         ObservableList<PieChart.Data> pieChartData = FXCollections.observableArrayList(
                 totalsByCategory.entrySet().stream()
-                        .map(entry -> new PieChart.Data(entry.getKey() + " (" + appConfig.getCurrencySymbol()
+                        .map(entry -> new PieChart.Data(entry.getKey() + " (" + appConfig.getSymbol(baseCurrency)
                                 + entry.getValue().setScale(0, java.math.RoundingMode.CEILING) + ")",
                                 entry.getValue().doubleValue()))
                         .collect(Collectors.toList()));

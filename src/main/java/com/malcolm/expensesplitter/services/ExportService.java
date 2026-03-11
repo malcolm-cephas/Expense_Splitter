@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.malcolm.expensesplitter.config.AppConfig;
 
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
@@ -34,6 +36,12 @@ import com.itextpdf.layout.properties.AreaBreakType;
  */
 @Service
 public class ExportService {
+
+        @Autowired
+        private AppConfig appConfig;
+
+        @Autowired
+        private ExchangeRateService exchangeRateService;
 
         /**
          * Exports group summary, user balances, and suggested settlements to a PDF
@@ -96,6 +104,7 @@ public class ExportService {
                                         involvedPara.add(new Text(" [Settled]").setFontColor(ColorConstants.GREEN));
                                 }
                                 involvedPara.add(new Text(" ("
+                                                + e.getCurrency() + " "
                                                 + s.getOwedAmount().setScale(2, java.math.RoundingMode.HALF_UP) + ")"));
                                 if (i < e.getSplits().size() - 1) {
                                         involvedPara.add(new Text("\n"));
@@ -104,6 +113,7 @@ public class ExportService {
 
                         String paidByStr = e.getPayments().stream()
                                         .map(p -> p.getUser().getName() + " ("
+                                                        + e.getCurrency() + " "
                                                         + p.getAmount().setScale(2, java.math.RoundingMode.HALF_UP)
                                                         + ")")
                                         .collect(Collectors.joining("\n"));
@@ -111,7 +121,7 @@ public class ExportService {
                         summaryTable.addCell(e.getCreatedAt().toString().substring(0, 10));
                         summaryTable.addCell(e.getDescription());
                         summaryTable.addCell(e.getCategory() != null ? e.getCategory() : "Other");
-                        summaryTable.addCell(e.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                        summaryTable.addCell(e.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString() + " " + e.getCurrency());
                         summaryTable.addCell(new Cell().add(new Paragraph(paidByStr).setFontSize(9)));
 
                         Cell statusCell = new Cell().add(new Paragraph(statusText));
@@ -148,25 +158,34 @@ public class ExportService {
                         totalPaidBy.put(member.getId(), BigDecimal.ZERO);
                         totalShareOf.put(member.getId(), BigDecimal.ZERO);
                 }
+                String prefCode = appConfig.getCurrencyCode();
                 for (Expense e : expenses) {
+                        BigDecimal rate = BigDecimal.ONE;
+                        if (e.getCurrency() != null && !e.getCurrency().equalsIgnoreCase(prefCode)) {
+                                rate = exchangeRateService.getExchangeRate(e.getCurrency(), prefCode);
+                        }
+
                         for (com.malcolm.expensesplitter.models.ExpensePayment payment : e.getPayments()) {
                                 UUID payerId = payment.getUser().getId();
-                                totalPaidBy.put(payerId, totalPaidBy.get(payerId).add(payment.getAmount()));
+                                BigDecimal conv = payment.getAmount().multiply(rate);
+                                totalPaidBy.put(payerId, totalPaidBy.get(payerId).add(conv));
                         }
                         for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
-                                totalShareOf.put(split.getUser().getId(),
-                                                totalShareOf.get(split.getUser().getId()).add(split.getOwedAmount()));
+                                UUID userId = split.getUser().getId();
+                                BigDecimal conv = split.getOwedAmount().multiply(rate);
+                                totalShareOf.put(userId, totalShareOf.get(userId).add(conv));
                         }
                 }
 
+                String prefSymbol = appConfig.getSymbol(prefCode);
                 for (User member : group.getMembers()) {
                         BigDecimal paid = totalPaidBy.get(member.getId());
                         BigDecimal share = totalShareOf.get(member.getId());
                         BigDecimal balance = paid.subtract(share);
                         balanceTable.addCell(member.getName());
-                        balanceTable.addCell(paid.setScale(2, java.math.RoundingMode.HALF_UP).toString());
-                        balanceTable.addCell(share.setScale(2, java.math.RoundingMode.HALF_UP).toString());
-                        balanceTable.addCell(balance.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                        balanceTable.addCell(prefSymbol + " " + paid.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                        balanceTable.addCell(prefSymbol + " " + share.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                        balanceTable.addCell(prefSymbol + " " + balance.setScale(2, java.math.RoundingMode.HALF_UP).toString());
                 }
                 document.add(balanceTable);
 
@@ -191,7 +210,9 @@ public class ExportService {
                                 settTable.addCell(userNames.get(t.getFrom()));
                                 settTable.addCell("owes");
                                 settTable.addCell(userNames.get(t.getTo()));
-                                settTable.addCell(t.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                                String currencyCode = appConfig.getCurrencyCode();
+                                String symbol = appConfig.getSymbol(currencyCode);
+                                settTable.addCell(symbol + " " + t.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString() + " " + currencyCode);
                         }
                         document.add(settTable);
                 }
@@ -218,10 +239,10 @@ public class ExportService {
                                         if (split.getUser().getId().equals(member.getId())) {
                                                 splitsTable.addCell(member.getName());
                                                 splitsTable.addCell(e.getDescription());
-                                                splitsTable.addCell(split.getOwedAmount()
+                                                splitsTable.addCell(e.getCurrency() + " " + split.getOwedAmount()
                                                                 .setScale(2, java.math.RoundingMode.HALF_UP)
                                                                 .toString());
-                                                splitsTable.addCell(split.getPaidAmount()
+                                                splitsTable.addCell(e.getCurrency() + " " + split.getPaidAmount()
                                                                 .setScale(2, java.math.RoundingMode.HALF_UP)
                                                                 .toString());
 
@@ -269,6 +290,7 @@ public class ExportService {
 
                         String paidByStr = e.getPayments().stream()
                                         .map(p -> p.getUser().getName() + " ("
+                                                        + e.getCurrency() + " "
                                                         + p.getAmount().setScale(2, java.math.RoundingMode.HALF_UP)
                                                         + ")")
                                         .collect(Collectors.joining(" | "));
@@ -276,7 +298,7 @@ public class ExportService {
                         writer.println(e.getCreatedAt().toString().substring(0, 10) + "," +
                                         escapeCsv(e.getDescription()) + "," +
                                         escapeCsv(e.getCategory() != null ? e.getCategory() : "Other") + "," +
-                                        e.getAmount().setScale(2, java.math.RoundingMode.HALF_UP) + "," +
+                                        e.getAmount().setScale(2, java.math.RoundingMode.HALF_UP) + " " + e.getCurrency() + "," +
                                         escapeCsv(paidByStr) + "," +
                                         escapeCsv(e.getPaymentMode() != null ? e.getPaymentMode() : "Cash") + "," +
                                         status + "," +
@@ -294,11 +316,11 @@ public class ExportService {
                                                 String splitStatus = split.isPaid() ? "Settled" : "Pending";
                                                 writer.println(escapeCsv(member.getName()) + "," +
                                                                 escapeCsv(e.getDescription()) + "," +
-                                                                split.getOwedAmount().setScale(2,
+                                                                e.getCurrency() + " " + split.getOwedAmount().setScale(2,
                                                                                 java.math.RoundingMode.HALF_UP)
                                                                 + ","
                                                                 +
-                                                                split.getPaidAmount().setScale(2,
+                                                                e.getCurrency() + " " + split.getPaidAmount().setScale(2,
                                                                                 java.math.RoundingMode.HALF_UP)
                                                                 + ","
                                                                 +
@@ -322,17 +344,22 @@ public class ExportService {
                         totalShareOf.put(member.getId(), BigDecimal.ZERO);
                 }
 
+                String prefCode = appConfig.getCurrencyCode();
                 for (Expense e : expenses) {
+                        BigDecimal rate = BigDecimal.ONE;
+                        if (e.getCurrency() != null && !e.getCurrency().equalsIgnoreCase(prefCode)) {
+                                rate = exchangeRateService.getExchangeRate(e.getCurrency(), prefCode);
+                        }
+
                         for (com.malcolm.expensesplitter.models.ExpensePayment payment : e.getPayments()) {
                                 UUID payerId = payment.getUser().getId();
-                                totalPaidBy.put(payerId, totalPaidBy.getOrDefault(payerId, BigDecimal.ZERO)
-                                                .add(payment.getAmount()));
+                                BigDecimal conv = payment.getAmount().multiply(rate);
+                                totalPaidBy.put(payerId, totalPaidBy.getOrDefault(payerId, BigDecimal.ZERO).add(conv));
                         }
                         for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
                                 UUID memberId = split.getUser().getId();
-                                totalShareOf.put(memberId,
-                                                totalShareOf.getOrDefault(memberId, BigDecimal.ZERO)
-                                                                .add(split.getOwedAmount()));
+                                BigDecimal conv = split.getOwedAmount().multiply(rate);
+                                totalShareOf.put(memberId, totalShareOf.getOrDefault(memberId, BigDecimal.ZERO).add(conv));
                         }
                 }
 
@@ -341,9 +368,9 @@ public class ExportService {
                         BigDecimal share = totalShareOf.get(member.getId());
                         BigDecimal balance = paid.subtract(share);
                         writer.println(escapeCsv(member.getName()) + "," +
-                                        paid.setScale(2, java.math.RoundingMode.HALF_UP) + "," +
-                                        share.setScale(2, java.math.RoundingMode.HALF_UP) + "," +
-                                        balance.setScale(2, java.math.RoundingMode.HALF_UP));
+                                        paid.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode + "," +
+                                        share.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode + "," +
+                                        balance.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode);
                 }
                 writer.println();
 
@@ -356,6 +383,7 @@ public class ExportService {
                         for (TransactionDto t : settlements) {
                                 writer.println(escapeCsv(userNames.get(t.getFrom())) + ",owes," +
                                                 escapeCsv(userNames.get(t.getTo())) + "," +
+                                                appConfig.getCurrencyCode() + " " +
                                                 t.getAmount().setScale(2, java.math.RoundingMode.HALF_UP));
                         }
                 }

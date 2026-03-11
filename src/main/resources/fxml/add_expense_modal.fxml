@@ -16,83 +16,77 @@
     </top>
 
     <center>
-        <VBox spacing="15.0" BorderPane.alignment="CENTER">
-            <padding>
-                <Insets top="20"/>
-            </padding>
-            <GridPane hgap="10" vgap="15">
-                <columnConstraints>
-                    <ColumnConstraints minWidth="100"/>
-                    <ColumnConstraints hgrow="ALWAYS"/>
-                </columnConstraints>
-                
-                <Label text="Description:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                <TextField fx:id="descriptionField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
-                
-                <Label text="Amount:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                <HBox spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                    <TextField fx:id="amountField" HBox.hgrow="ALWAYS"/>
-                    <ComboBox fx:id="currencyComboBox" prefWidth="100"/>
-                </HBox>
-                
-                <Label text="Paid by:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-                <ComboBox fx:id="payerComboBox" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+        <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-padding: 0;">
+            <VBox spacing="15.0">
+                <padding>
+                    <Insets top="20" right="10" bottom="20" left="10"/>
+                </padding>
+                <GridPane hgap="10" vgap="15">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="100"/>
+                        <ColumnConstraints hgrow="ALWAYS"/>
+                    </columnConstraints>
+                    
+                    <Label text="Description:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <TextField fx:id="descriptionField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                    
+                    <Label text="Amount:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                    <HBox spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                        <TextField fx:id="amountField" HBox.hgrow="ALWAYS"/>
+                        <ComboBox fx:id="currencyComboBox" prefWidth="100"/>
+                    </HBox>
+                    
+                    <Label text="Paid by:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                    <ComboBox fx:id="payerComboBox" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
 
-                <VBox fx:id="multiplePayersContainer" spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="3" managed="false" visible="false"/>
+                    <VBox fx:id="multiplePayersContainer" spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="3" managed="false" visible="false"/>
 
-                <Label text="Payment Mode:" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
-                <ComboBox fx:id="paymentModeComboBox" GridPane.columnIndex="1" GridPane.rowIndex="4" maxWidth="Infinity"/>
+                    <Label text="Payment Mode:" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                    <ComboBox fx:id="paymentModeComboBox" GridPane.columnIndex="1" GridPane.rowIndex="4" maxWidth="Infinity"/>
 
-                <Label text="Category:" GridPane.columnIndex="0" GridPane.rowIndex="5"/>
-                <ComboBox fx:id="categoryComboBox" GridPane.columnIndex="1" GridPane.rowIndex="5" maxWidth="Infinity"/>
+                    <Label text="Category:" GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+                    <ComboBox fx:id="categoryComboBox" GridPane.columnIndex="1" GridPane.rowIndex="5" maxWidth="Infinity"/>
 
-                <Label text="Date:" GridPane.columnIndex="0" GridPane.rowIndex="6"/>
-                <DatePicker fx:id="expenseDatePicker" GridPane.columnIndex="1" GridPane.rowIndex="6" maxWidth="Infinity"/>
-            </GridPane>
+                    <Label text="Date:" GridPane.columnIndex="0" GridPane.rowIndex="6"/>
+                    <DatePicker fx:id="expenseDatePicker" GridPane.columnIndex="1" GridPane.rowIndex="6" maxWidth="Infinity"/>
+                </GridPane>
 
-            <Separator/>
-            <Label text="Split Options" styleClass="title-4"/>
-            <TabPane fx:id="splitTypeTabPane" VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
-                <tabs>
-                    <Tab text="Equal (=)">
-                        <VBox alignment="CENTER_LEFT" spacing="10">
-                            <padding><Insets top="20" bottom="20"/></padding>
-                            <Label text="Select members involved in this expense:" styleClass="title-4"/>
-                            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent; -fx-padding: 0;">
+                <Separator/>
+                <Label text="Split Options" styleClass="title-4"/>
+                <TabPane fx:id="splitTypeTabPane" minHeight="300" tabClosingPolicy="UNAVAILABLE">
+                    <tabs>
+                        <Tab text="Equal (=)">
+                            <VBox alignment="CENTER_LEFT" spacing="10">
+                                <padding><Insets top="20" bottom="20"/></padding>
+                                <Label text="Select members involved in this expense:" styleClass="title-4"/>
                                 <VBox fx:id="membersCheckboxContainer" spacing="5"/>
-                            </ScrollPane>
-                        </VBox>
-                    </Tab>
-                    <Tab text="Exact Amount (₹)">
-                        <VBox alignment="TOP_LEFT" spacing="10">
-                            <padding><Insets top="20" bottom="20"/></padding>
-                            <Label text="Enter exact amount for each member:" styleClass="title-4"/>
-                            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent; -fx-padding: 0;">
+                            </VBox>
+                        </Tab>
+                        <Tab text="Exact Amount (₹)">
+                            <VBox alignment="TOP_LEFT" spacing="10">
+                                <padding><Insets top="20" bottom="20"/></padding>
+                                <Label text="Enter exact amount for each member:" styleClass="title-4"/>
                                 <VBox fx:id="exactAmountContainer" spacing="5"/>
-                            </ScrollPane>
-                        </VBox>
-                    </Tab>
-                    <Tab text="Percentages (%)">
-                        <VBox alignment="TOP_LEFT" spacing="10">
-                            <padding><Insets top="20" bottom="20"/></padding>
-                            <Label text="Enter percentage for each member (Total 100%):" styleClass="title-4"/>
-                            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent; -fx-padding: 0;">
+                            </VBox>
+                        </Tab>
+                        <Tab text="Percentages (%)">
+                            <VBox alignment="TOP_LEFT" spacing="10">
+                                <padding><Insets top="20" bottom="20"/></padding>
+                                <Label text="Enter percentage for each member (Total 100%):" styleClass="title-4"/>
                                 <VBox fx:id="percentageContainer" spacing="5"/>
-                            </ScrollPane>
-                        </VBox>
-                    </Tab>
-                    <Tab text="Shares (x)">
-                        <VBox alignment="TOP_LEFT" spacing="10">
-                            <padding><Insets top="20" bottom="20"/></padding>
-                            <Label text="Enter number of shares for each member:" styleClass="title-4"/>
-                            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent; -fx-padding: 0;">
+                            </VBox>
+                        </Tab>
+                        <Tab text="Shares (x)">
+                            <VBox alignment="TOP_LEFT" spacing="10">
+                                <padding><Insets top="20" bottom="20"/></padding>
+                                <Label text="Enter number of shares for each member:" styleClass="title-4"/>
                                 <VBox fx:id="sharesContainer" spacing="5"/>
-                            </ScrollPane>
-                        </VBox>
-                    </Tab>
-                </tabs>
-            </TabPane>
-        </VBox>
+                            </VBox>
+                        </Tab>
+                    </tabs>
+                </TabPane>
+            </VBox>
+        </ScrollPane>
     </center>
 
     <bottom>

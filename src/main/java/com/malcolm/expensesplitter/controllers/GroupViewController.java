@@ -349,31 +349,44 @@ public class GroupViewController {
 
         java.io.File file = fileChooser.showSaveDialog(groupNameLabel.getScene().getWindow());
         if (file != null) {
-            try {
-                List<Expense> expenses = expenseService.getGroupExpenses(currentGroup.getId());
-                List<TransactionDto> settlements = settlementService.calculateSimplifiedDebts(currentGroup.getId());
+            // Use a Task for background processing
+            javafx.concurrent.Task<Void> exportTask = new javafx.concurrent.Task<>() {
+                @Override
+                protected Void call() throws Exception {
+                    List<Expense> expenses = expenseService.getGroupExpenses(currentGroup.getId());
+                    List<TransactionDto> settlements = settlementService.calculateSimplifiedDebts(currentGroup.getId());
 
-                if (file.getName().toLowerCase().endsWith(".pdf")) {
-                    exportService.exportGroupToPdf(currentGroup, expenses, settlements, file);
-                } else {
-                    try (java.io.PrintWriter writer = new java.io.PrintWriter(file)) {
-                        exportService.exportGroupToCsv(currentGroup, expenses, settlements, writer);
+                    if (file.getName().toLowerCase().endsWith(".pdf")) {
+                        exportService.exportGroupToPdf(currentGroup, expenses, settlements, file);
+                    } else {
+                        try (java.io.PrintWriter writer = new java.io.PrintWriter(file)) {
+                            exportService.exportGroupToCsv(currentGroup, expenses, settlements, writer);
+                        }
                     }
+                    return null;
                 }
+            };
 
+            exportTask.setOnSucceeded(event -> {
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Export Successful");
                 alert.setHeaderText(null);
                 alert.setContentText("Report exported to: " + file.getAbsolutePath());
                 alert.showAndWait();
-            } catch (Exception e) {
+            });
+
+            exportTask.setOnFailed(event -> {
+                Throwable e = exportTask.getException();
                 e.printStackTrace();
                 Alert alert = new Alert(Alert.AlertType.ERROR);
                 alert.setTitle("Export Failed");
                 alert.setHeaderText("An error occurred during export");
                 alert.setContentText(e.getMessage());
                 alert.showAndWait();
-            }
+            });
+
+            // Start the background thread
+            new Thread(exportTask).start();
         }
     }
 

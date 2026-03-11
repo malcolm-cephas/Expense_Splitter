@@ -120,9 +120,9 @@ public class SettlementService {
             BalanceNode credit = creditors.poll();
             BalanceNode debt = debtors.poll();
 
-            BigDecimal settledAmount = credit.amount.min(debt.amount).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal settledAmount = credit.amount.min(debt.amount);
             if (settledAmount.compareTo(BigDecimal.ZERO) > 0) {
-                transactions.add(new TransactionDto(debt.userId, credit.userId, settledAmount));
+                transactions.add(new TransactionDto(debt.userId, credit.userId, settledAmount.setScale(2, RoundingMode.HALF_UP)));
             }
 
             credit.amount = credit.amount.subtract(settledAmount);
