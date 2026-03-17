@@ -12,12 +12,12 @@
 # 📸 Screenshots
 
 <p align="center">
-  <img src="assets/dashboard.png" width="45%" alt="Dashboard" />
-  <img src="assets/add_expense.png" width="45%" alt="Add Expense" />
-</p>
+  <img src="assets/dashboard.png" width="100%" alt="Dashboard" />
+  </p>
 <p align="center">
-  <img src="assets/statistics.png" width="45%" alt="Statistics" />
-  <img src="assets/settle_up.png" width="45%" alt="Settle Up" />
+  <img src="assets/add_expense.png" width="30%" alt="Add Expense" />
+  <img src="assets/settle_up.png" width="30%" alt="Settle Up" />
+  <img src="assets/statistics.png" width="30%" alt="Statistics" />
 </p>
 
 ---
@@ -104,10 +104,18 @@ cd Expense_Splitter/expense-splitter
 ```
 
 ### Quick Start (Windows)
-Run the project immediately using the provided script:
+To set up the environment and build the project for the first time:
+```bash
+./setup.bat
+```
+
+Once setup is complete, run the application:
 ```bash
 ./start.bat
 ```
+
+> [!NOTE]
+> Detailed system dependencies are listed in [requirements.txt](requirements.txt).
 
 ### Build the Project manually
 ```bash

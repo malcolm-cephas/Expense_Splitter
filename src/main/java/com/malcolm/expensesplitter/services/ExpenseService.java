@@ -35,6 +35,9 @@ public class ExpenseService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private CategoryDetectionService categoryDetectionService;
+
     public Expense addEqualExpense(UUID groupId, UUID paidById, BigDecimal amount, String description,
             String paymentMode, String category, LocalDate expenseDate, Set<UUID> involvedMemberIds) {
         Group group = groupRepository.findById(groupId).orElseThrow();
@@ -43,7 +46,11 @@ public class ExpenseService {
         Expense expense = new Expense(group, amount, description, SplitType.EQUAL);
         expense.addPayment(new ExpensePayment(paidBy, amount));
         expense.setPaymentMode(paymentMode);
-        expense.setCategory(category);
+        if (category == null || category.isEmpty() || category.equals("Other")) {
+            expense.setCategory(categoryDetectionService.detectCategory(description));
+        } else {
+            expense.setCategory(category);
+        }
         if (expenseDate != null)
             expense.setExpenseDate(expenseDate);
 
@@ -128,6 +135,11 @@ public class ExpenseService {
         for (Map.Entry<UUID, BigDecimal> entry : paymentInputs.entrySet()) {
             User user = userRepository.findById(entry.getKey()).orElseThrow();
             expense.addPayment(new ExpensePayment(user, entry.getValue()));
+        }
+
+        // Feature 2: Smart Category Detection
+        if (expense.getCategory() == null || expense.getCategory().isEmpty() || expense.getCategory().equals("Other")) {
+            expense.setCategory(categoryDetectionService.detectCategory(description));
         }
 
         calculateAndAddSplits(expense, splitType, splitInputs, group.getMembers());
@@ -303,5 +315,18 @@ public class ExpenseService {
             }
         }
         expenseRepository.save(expense);
+    }
+
+    public List<Expense> findPotentialDuplicates(UUID userId, BigDecimal amount, String description) {
+        // Find expenses in the last 5 minutes
+        java.time.LocalDateTime fiveMinutesAgo = java.time.LocalDateTime.now().minusMinutes(5);
+        List<Expense> groupExpenses = expenseRepository.findAll(); // This is inefficient, but without a better repo method for now...
+
+        return groupExpenses.stream()
+                .filter(e -> e.getCreatedAt().isAfter(fiveMinutesAgo))
+                .filter(e -> e.getAmount().compareTo(amount) == 0)
+                .filter(e -> e.getDescription().equalsIgnoreCase(description))
+                .filter(e -> e.getPayments().stream().anyMatch(p -> p.getUser().getId().equals(userId)))
+                .collect(Collectors.toList());
     }
 }

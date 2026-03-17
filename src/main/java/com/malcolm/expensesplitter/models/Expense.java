@@ -32,14 +32,20 @@ public class Expense {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
+    @Column(length = 20)
     private String currency;
+
+    @Column(length = 255)
     private String description;
+
+    @Column(length = 50)
     private String category;
 
     // Cash, UPI, Card, etc.
     private String paymentMode;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "split_type", length = 30)
     private SplitType splitType;
 
     private String receiptPath;
