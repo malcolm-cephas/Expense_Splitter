@@ -57,9 +57,13 @@ A single expense can be split among multiple payers. The system tracks partial p
 Our **Smart Settle Up** feature uses a **greedy optimization algorithm** to minimize the number of transactions needed to settle all debts across multiple currencies.
 
 ### 📄 Professional Export Options
-Generate detailed reports:
-- **PDF Reports (iText)**
-- **CSV Data Export**
+Generate detailed reports with smart naming:
+- **PDF Reports (iText)**: Styled summaries with charts. (Default: `GroupName_ExpenseReport`)
+- **CSV Data Export**: Raw transaction data for Excel/Sheets. (Default: `GroupName_ExpenseReport`)
+- **JSON Backup**: Full database portable export for migration. (Default: `GroupName_Backup`)
+
+### 👨‍👩‍👧‍👦 Family Grouping
+Enable family-based expense tracking to aggregate spending by household while maintaining individual member records.
 
 ### 🎨 Premium UI/UX
 Built with **JavaFX + AtlantaFX (Primer Dark)** for a modern dark-mode experience.
@@ -117,6 +121,12 @@ Once setup is complete, run the application:
 > [!NOTE]
 > Detailed system dependencies are listed in [requirements.txt](requirements.txt).
 
+## 👷 CI/CD & Deployment
+The project includes a robust GitHub Actions workflow ([build.yml](.github/workflows/build.yml)) that:
+- Automatically builds and tests the application on every push to `main`.
+- Generates an executable JAR as a build artifact.
+- Enables seamless release management via GitHub Releases.
+
 ### Build the Project manually
 ```bash
 mvn clean install -DskipTests
@@ -144,13 +154,15 @@ APP["Expense Splitter Pro\n(JavaFX + Spring Boot)"]
 FS[(Local Filesystem)]
 H2[(Embedded H2 Database)]
 CACHE["exchange_rates.json\n(Offline Cache)"]
+BKUP["Exported Backups\n(.json / .csv / .pdf)"]
 end
 
 U -->|uses| APP
 APP -->|fetches| API
 APP -->|reads/writes| H2
 APP -->|persist| CACHE
-APP -->|exports reports| FS
+APP -->|exports/imports| BKUP
+APP -->|renders| FS
 
 subgraph JVM_Process
 BOOT[Application Bootstrap]
@@ -201,6 +213,10 @@ USER ||--o{ EXPENSE_SPLIT : owes
 GROUP {
   UUID id
   string name
+  string description
+  decimal budget
+  string budgetCurrency
+  boolean familyGroupingEnabled
 }
 
 USER {
@@ -208,6 +224,7 @@ USER {
   string name
   string email
   string currencyPreference
+  string familyName
 }
 
 EXPENSE {
@@ -248,14 +265,15 @@ participant EX as ExchangeRateService
 participant Service as ExpenseService
 participant DB as H2 Database
 
-User ->> UI: Select Currency & Amount
+User ->> UI: Select Currency & Payers
 UI ->> EX: getExchangeRate()
 EX -->> UI: Rate (Cached/Live)
-UI ->> Service: addExpense(currency)
+UI ->> Service: addExpense(multiple_payers)
 
-Service ->> Service: compute splits (normalized)
+Service ->> Service: compute multi-payer splits
+Service ->> Service: normalize to base currency
 
-Service ->> DB: save Expense
+Service ->> DB: save Expense + Payments
 DB -->> Service: OK
 
 Service -->> UI: success
@@ -286,6 +304,10 @@ loop For each Expense
     EX -->> Service: normalized amount
 end
 
+opt Family Grouping Enabled
+    Service ->> Service: Aggregate by Family Name
+end
+
 Service ->> Service: greedy debt algorithm
 
 Service -->> UI: simplified settlement list
@@ -300,27 +322,27 @@ Generate reports that preserve both the original currency and the normalized tot
 ```mermaid
 sequenceDiagram
 actor User
-participant UI as ExpenseDetailsController
+participant UI as GroupViewController
 participant Service as ExportService
 participant PDF as iText
 participant CSV as CSV Writer
+participant JSON as Jackson
 participant FS as Filesystem
 
-User ->> UI: Export report
+User ->> UI: Export (Choose Type)
 UI ->> Service: export()
 
-alt PDF
-Service ->> PDF: generate (styled)
-PDF -->> Service: pdf
-Service ->> FS: write pdf
-else CSV
-Service ->> CSV: write rows (raw data)
-CSV -->> Service: csv
-Service ->> FS: write csv
+alt PDF/CSV Report
+Service ->> PDF: generate (GroupName_ExpenseReport)
+PDF -->> Service: file
+else JSON Backup
+Service ->> JSON: serialize (GroupName_Backup)
+JSON -->> Service: file
 end
 
+Service ->> FS: write file
 Service -->> UI: path
-UI -->> User: success
+UI -->> User: success success
 ```
 
 ---

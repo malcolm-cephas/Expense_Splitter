@@ -133,7 +133,7 @@ public class ExchangeRateService {
 
                         if (rate.compareTo(BigDecimal.ZERO) != 0) {
                             rateCache.put(toCurrency + "_" + from,
-                                    BigDecimal.ONE.divide(rate, 6, java.math.RoundingMode.HALF_UP));
+                                    BigDecimal.ONE.divide(rate, 10, java.math.RoundingMode.HALF_UP));
                         }
                     });
                     return true;

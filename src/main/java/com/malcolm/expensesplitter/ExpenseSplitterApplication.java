@@ -67,16 +67,41 @@ public class ExpenseSplitterApplication extends Application {
     public CommandLineRunner fixDatabaseConstraints(JdbcTemplate jdbcTemplate) {
         return args -> {
             try {
-                // Find all check constraints on the 'expenses' table for the 'split_type' column
-                String sql = "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.CONSTRAINTS " +
-                             "WHERE TABLE_NAME = 'EXPENSES' AND COLUMN_LIST = 'SPLIT_TYPE'";
+                // Find all check constraints on the 'expenses' table
+                // We check multiple metadata tables to support both H2 v1.4 and v2.x
+                String[] queries = {
+                    "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.CONSTRAINTS WHERE TABLE_NAME = 'EXPENSES' AND CONSTRAINT_TYPE = 'CHECK'",
+                    "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'EXPENSES' AND CONSTRAINT_TYPE = 'CHECK'",
+                    "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.CONSTRAINTS WHERE TABLE_NAME = 'expenses' AND CONSTRAINT_TYPE = 'CHECK'",
+                    "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = 'expenses' AND CONSTRAINT_TYPE = 'CHECK'"
+                };
                 
-                List<Map<String, Object>> constraints = jdbcTemplate.queryForList(sql);
-                for (Map<String, Object> constraint : constraints) {
-                    String constraintName = (String) constraint.get("CONSTRAINT_NAME");
-                    System.out.println("Dropping restrictive DB constraint: " + constraintName);
-                    jdbcTemplate.execute("ALTER TABLE EXPENSES DROP CONSTRAINT " + constraintName);
+                for (String sql : queries) {
+                    try {
+                        List<Map<String, Object>> constraints = jdbcTemplate.queryForList(sql);
+                        for (Map<String, Object> constraint : constraints) {
+                            String constraintName = (String) constraint.get("CONSTRAINT_NAME");
+                            System.out.println("Self-healing: Found check constraint: " + constraintName + " (via " + sql + ")");
+                            try {
+                                jdbcTemplate.execute("ALTER TABLE EXPENSES DROP CONSTRAINT " + constraintName);
+                                System.out.println("Self-healing: Successfully dropped " + constraintName);
+                            } catch (Exception e) {
+                                // Try lowercase table name just in case
+                                try {
+                                    jdbcTemplate.execute("ALTER TABLE expenses DROP CONSTRAINT " + constraintName);
+                                } catch (Exception e2) {
+                                    System.err.println("Self-healing: Failed to drop " + constraintName + ": " + e2.getMessage());
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Some tables might not exist in all H2 versions, ignore
+                    }
                 }
+
+                // Ensure legacy paid_by_id is nullable in the actual schema
+                System.out.println("Self-healing: Ensuring PAID_BY_ID is nullable...");
+                jdbcTemplate.execute("ALTER TABLE EXPENSES ALTER COLUMN PAID_BY_ID SET NULL");
             } catch (Exception e) {
                 // If the table doesn't exist yet or other issue, ignore
                 System.err.println("Database healing skipped: " + e.getMessage());

@@ -15,15 +15,19 @@ public class AppConfig {
 
     private String userPreferredCode;
 
-    private static final Map<String, String> SYMBOLS = Map.of(
-            "INR", "\u20B9",
-            "USD", "$",
-            "EUR", "\u20AC",
-            "GBP", "\u00A3",
-            "JPY", "\u00A5",
-            "CAD", "C$",
-            "AUD", "A$",
-            "AED", "dh");
+    private static final Map<String, String> SYMBOLS = Map.ofEntries(
+            Map.entry("INR", "\u20B9"),
+            Map.entry("USD", "$"),
+            Map.entry("EUR", "\u20AC"),
+            Map.entry("GBP", "\u00A3"),
+            Map.entry("JPY", "\u00A5"),
+            Map.entry("CAD", "C$"),
+            Map.entry("AUD", "A$"),
+            Map.entry("AED", "dh"),
+            Map.entry("BTC", "\u20BF"),
+            Map.entry("ETH", "\u039E"),
+            Map.entry("SOL", "S"),
+            Map.entry("USDT", "\u20AE"));
 
     @org.springframework.context.annotation.Bean
     public com.fasterxml.jackson.databind.ObjectMapper objectMapper() {

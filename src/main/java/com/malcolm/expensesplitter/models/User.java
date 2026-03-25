@@ -17,6 +17,7 @@ public class User {
     private String email;
 
     private String currencyPreference;
+    private String familyName;
 
     public User() {
     }
@@ -57,6 +58,14 @@ public class User {
 
     public void setCurrencyPreference(String currencyPreference) {
         this.currencyPreference = currencyPreference;
+    }
+
+    public String getFamilyName() {
+        return familyName;
+    }
+
+    public void setFamilyName(String familyName) {
+        this.familyName = familyName;
     }
 
     @Override

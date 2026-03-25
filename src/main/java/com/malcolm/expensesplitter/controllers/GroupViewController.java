@@ -69,6 +69,9 @@ public class GroupViewController {
     @FXML
     private ListView<User> memberListView;
 
+    @FXML
+    private javafx.scene.control.ToggleButton familyGroupingToggle;
+
     private Group currentGroup;
     private ObservableList<Expense> expensesObservable = FXCollections.observableArrayList();
     private ObservableList<User> membersObservable = FXCollections.observableArrayList();
@@ -86,7 +89,8 @@ public class GroupViewController {
                     setText(null);
                     setContextMenu(null);
                 } else {
-                    setText(item.getName() + " (" + item.getEmail() + ")");
+                    String family = item.getFamilyName() != null ? " [" + item.getFamilyName() + "]" : "";
+                    setText(item.getName() + family + " (" + item.getEmail() + ")");
                     // Ensure the item is selected on right click if not already
                     setOnMousePressed(event -> {
                         if (event.isSecondaryButtonDown()) {
@@ -145,6 +149,7 @@ public class GroupViewController {
 
             expensesObservable.setAll(expenseService.getGroupExpenses(groupId));
             membersObservable.setAll(currentGroup.getMembers());
+            familyGroupingToggle.setSelected(currentGroup.isFamilyGroupingEnabled());
         }
     }
 
@@ -212,6 +217,67 @@ public class GroupViewController {
                     currentGroup = groupService.getGroup(currentGroup.getId()); // reload
                     membersObservable.setAll(currentGroup.getMembers());
                 }
+            });
+        }
+    }
+
+    @FXML
+    public void handleToggleFamilyGrouping() {
+        if (currentGroup != null) {
+            currentGroup = groupService.toggleFamilyGrouping(currentGroup.getId());
+            familyGroupingToggle.setSelected(currentGroup.isFamilyGroupingEnabled());
+            // Optionally refresh view if needed, but settlements/export are the main users
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Family Grouping");
+            alert.setHeaderText(null);
+            alert.setContentText("Family grouping is now " + (currentGroup.isFamilyGroupingEnabled() ? "ENABLED" : "DISABLED") + " for this group.");
+            alert.showAndWait();
+        }
+    }
+
+    @FXML
+    public void handleSetFamilyName() {
+        User selected = memberListView.getSelectionModel().getSelectedItem();
+        if (selected != null && currentGroup != null) {
+            // Get unique existing family names for the dropdown
+            java.util.Set<String> existingFamilies = currentGroup.getMembers().stream()
+                .map(User::getFamilyName)
+                .filter(name -> name != null && !name.trim().isEmpty())
+                .collect(java.util.stream.Collectors.toSet());
+
+            // Create a custom dialog with an editable ComboBox
+            javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
+            dialog.setTitle("Set Family Name");
+            dialog.setHeaderText("Specify family for " + selected.getName());
+
+            javafx.scene.control.ButtonType okButtonType = new javafx.scene.control.ButtonType("OK", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(okButtonType, javafx.scene.control.ButtonType.CANCEL);
+
+            javafx.scene.control.ComboBox<String> comboBox = new javafx.scene.control.ComboBox<>(javafx.collections.FXCollections.observableArrayList(existingFamilies));
+            comboBox.setEditable(true);
+            comboBox.setPromptText("Enter or select family name...");
+            comboBox.setValue(selected.getFamilyName());
+            comboBox.setPrefWidth(250);
+
+            javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(10, new javafx.scene.control.Label("Family Name:"), comboBox);
+            content.setPadding(new javafx.geometry.Insets(20));
+            dialog.getDialogPane().setContent(content);
+
+            // Request focus once the dialog is shown
+            javafx.application.Platform.runLater(comboBox::requestFocus);
+
+            dialog.setResultConverter(dialogButton -> {
+                if (dialogButton == okButtonType) {
+                    return comboBox.getEditor().getText();
+                }
+                return null;
+            });
+
+            Optional<String> result = dialog.showAndWait();
+            result.ifPresent(name -> {
+                groupService.updateMemberFamilyName(selected.getId(), name.trim());
+                currentGroup = groupService.getGroup(currentGroup.getId());
+                membersObservable.setAll(currentGroup.getMembers());
             });
         }
     }
@@ -344,8 +410,21 @@ public class GroupViewController {
         fileChooser.setTitle("Export Group Summary");
         fileChooser.getExtensionFilters().addAll(
                 new FileChooser.ExtensionFilter("PDF Files", "*.pdf"),
-                new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
-        fileChooser.setInitialFileName(currentGroup.getName().replace(" ", "_") + "_Report");
+                new FileChooser.ExtensionFilter("CSV Files", "*.csv"),
+                new FileChooser.ExtensionFilter("JSON Backup", "*.json"));
+        String baseName = currentGroup.getName().replace(" ", "_");
+        fileChooser.setInitialFileName(baseName + "_ExpenseReport"); // Default to Report as PDF is first
+
+        // Note: Some OS native dialogs may not update the filename in real-time when the filter changes.
+        fileChooser.selectedExtensionFilterProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                if (newV.getExtensions().contains("*.json")) {
+                    fileChooser.setInitialFileName(baseName + "_Backup");
+                } else {
+                    fileChooser.setInitialFileName(baseName + "_ExpenseReport");
+                }
+            }
+        });
 
         java.io.File file = fileChooser.showSaveDialog(groupNameLabel.getScene().getWindow());
         if (file != null) {
@@ -358,10 +437,12 @@ public class GroupViewController {
 
                     if (file.getName().toLowerCase().endsWith(".pdf")) {
                         exportService.exportGroupToPdf(currentGroup, expenses, settlements, file);
-                    } else {
+                    } else if (file.getName().toLowerCase().endsWith(".csv")) {
                         try (java.io.PrintWriter writer = new java.io.PrintWriter(file)) {
                             exportService.exportGroupToCsv(currentGroup, expenses, settlements, writer);
                         }
+                    } else if (file.getName().toLowerCase().endsWith(".json")) {
+                        exportService.exportGroupToJsonBackup(currentGroup, expenses, file);
                     }
                     return null;
                 }

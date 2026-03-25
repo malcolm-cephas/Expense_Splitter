@@ -118,7 +118,7 @@ public class AddExpenseController {
         });
 
         currencyComboBox.setItems(
-                FXCollections.observableArrayList("INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD", "AED"));
+                FXCollections.observableArrayList("INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD", "AED", "BTC", "ETH", "USDT"));
         if (appConfig != null && appConfig.getCurrencyCode() != null) {
             currencyComboBox.getSelectionModel().select(appConfig.getCurrencyCode());
             multiplePayersSentinel = new User("Multiple Payers...", "multp@splitter.internal",
@@ -315,6 +315,15 @@ public class AddExpenseController {
         
         multiplePayersContainer.setVisible(isMultiple);
         multiplePayersContainer.setManaged(isMultiple);
+
+        if (!isMultiple && selectedPayer != null && membersCheckboxContainer != null) {
+            for (javafx.scene.Node node : membersCheckboxContainer.getChildren()) {
+                if (node instanceof CheckBox cb && selectedPayer.getId().equals(cb.getUserData())) {
+                    cb.setSelected(true);
+                    break;
+                }
+            }
+        }
     }
 
     private void populatePaymentContainer(javafx.scene.layout.VBox container, Expense expense) {

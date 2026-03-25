@@ -3,6 +3,7 @@ package com.malcolm.expensesplitter.controllers;
 import com.malcolm.expensesplitter.config.AppConfig;
 import com.malcolm.expensesplitter.models.Group;
 import com.malcolm.expensesplitter.services.GroupService;
+import com.malcolm.expensesplitter.services.ImportService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -18,6 +19,9 @@ import com.malcolm.expensesplitter.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
+import atlantafx.base.theme.PrimerDark;
+import atlantafx.base.theme.PrimerLight;
+import javafx.application.Application;
 
 import javafx.scene.control.TextInputDialog;
 import java.util.List;
@@ -34,6 +38,9 @@ public class DashboardController {
 
     @Autowired
     private GroupService groupService;
+
+    @Autowired
+    private ImportService importService;
 
     @Autowired
     private UserRepository userRepository;
@@ -58,6 +65,9 @@ public class DashboardController {
 
     @FXML
     private TextField newGroupNameField;
+
+    @FXML
+    private javafx.scene.control.ToggleButton themeToggleButton;
 
     @FXML
     private VBox mainContentArea;
@@ -209,6 +219,13 @@ public class DashboardController {
         // Load groups later when auth is injected, for now, we'll try to load all
         refreshGroups();
         setupSearchableCurrency();
+        
+        // Initialize theme toggle state
+        if (themeToggleButton != null) {
+            boolean isDark = javafx.application.Application.getUserAgentStylesheet().contains("PrimerDark");
+            themeToggleButton.setSelected(isDark);
+            themeToggleButton.setText(isDark ? "🌙 Dark" : "☀️ Light");
+        }
     }
 
     private void setupSearchableCurrency() {
@@ -234,6 +251,18 @@ public class DashboardController {
                 }
             } catch (Exception e) {}
         }
+        
+        // Add common Crypto assets manually as java.util.Currency doesn't include them
+        entries.add("BTC (Bitcoin)");
+        entries.add("ETH (Ethereum)");
+        entries.add("SOL (Solana)");
+        entries.add("USDT (Tether)");
+        entries.add("BNB (Binance)");
+        entries.add("MATIC (Polygon)");
+        entries.add("DOGE (Dogecoin)");
+        entries.add("DOT (Polkadot)");
+        entries.add("ADA (Cardano)");
+
         allCurrencies.setAll(entries);
         FXCollections.sort(allCurrencies);
         filteredCurrencies.setAll(allCurrencies);
@@ -309,6 +338,43 @@ public class DashboardController {
         }
     }
 
+    @FXML
+    public void handleImportGroup() {
+        javafx.stage.FileChooser fileChooser = new javafx.stage.FileChooser();
+        fileChooser.setTitle("Select Group Backup File");
+        fileChooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("JSON Backup", "*.json"));
+        
+        java.io.File file = fileChooser.showOpenDialog(groupListView.getScene().getWindow());
+        if (file != null) {
+            javafx.concurrent.Task<Group> importTask = new javafx.concurrent.Task<>() {
+                @Override
+                protected Group call() throws Exception {
+                    return importService.importGroupFromBackup(file);
+                }
+            };
+
+            importTask.setOnSucceeded(event -> {
+                refreshGroups();
+                javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
+                alert.setTitle("Import Successful");
+                alert.setHeaderText(null);
+                alert.setContentText("Group has been imported successfully: " + importTask.getValue().getName());
+                alert.showAndWait();
+            });
+
+            importTask.setOnFailed(event -> {
+                importTask.getException().printStackTrace();
+                javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+                alert.setTitle("Import Failed");
+                alert.setHeaderText("An error occurred during import");
+                alert.setContentText(importTask.getException().getMessage());
+                alert.showAndWait();
+            });
+
+            new Thread(importTask).start();
+        }
+    }
+
     private void refreshGroups() {
         groupsObservable.setAll(groupService.getAllGroups());
     }
@@ -359,6 +425,18 @@ public class DashboardController {
             VBox.setVgrow(groupView, javafx.scene.layout.Priority.ALWAYS);
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    @FXML
+    public void handleThemeToggle() {
+        boolean isDark = themeToggleButton.isSelected();
+        if (isDark) {
+            Application.setUserAgentStylesheet(new PrimerDark().getUserAgentStylesheet());
+            themeToggleButton.setText("🌙 Dark");
+        } else {
+            Application.setUserAgentStylesheet(new PrimerLight().getUserAgentStylesheet());
+            themeToggleButton.setText("☀️ Light");
         }
     }
 

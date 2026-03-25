@@ -22,7 +22,10 @@
             
             <javafx.scene.layout.Region HBox.hgrow="ALWAYS" />
             
-            <HBox alignment="CENTER_RIGHT" spacing="10.0">
+            <HBox alignment="CENTER_RIGHT" spacing="15.0">
+                <javafx.scene.control.ToggleButton fx:id="themeToggleButton" 
+                    text="🌙 Dark" onAction="#handleThemeToggle" prefWidth="90.0"/>
+                
                 <Label text="Default Currency: " styleClass="text-muted"/>
                 <TextField fx:id="currencySearchField" promptText="Search currency (e.g. INR)" prefWidth="150.0"/>
             </HBox>
@@ -44,6 +47,11 @@
                     <TextField fx:id="newGroupNameField" promptText="Group Name" HBox.hgrow="ALWAYS"/>
                     <Button text="Create" onAction="#onCreateGroup" styleClass="accent"/>
                 </HBox>
+            </VBox>
+
+            <VBox spacing="10.0">
+                <Label text="Tools" styleClass="title-4"/>
+                <Button text="📂 Import Group Backup" onAction="#handleImportGroup" prefWidth="210.0"/>
             </VBox>
         </VBox>
     </left>

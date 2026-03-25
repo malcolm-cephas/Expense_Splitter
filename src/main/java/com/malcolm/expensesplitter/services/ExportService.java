@@ -12,11 +12,15 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.malcolm.expensesplitter.config.AppConfig;
 
+import com.malcolm.expensesplitter.dto.GroupBackupDto;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
@@ -43,6 +47,13 @@ public class ExportService {
         @Autowired
         private ExchangeRateService exchangeRateService;
 
+        private final ObjectMapper objectMapper;
+
+        public ExportService() {
+                this.objectMapper = new ObjectMapper();
+                this.objectMapper.registerModule(new JavaTimeModule());
+        }
+
         /**
          * Exports group summary, user balances, and suggested settlements to a PDF
          * file.
@@ -58,6 +69,8 @@ public class ExportService {
                 PdfWriter writer = new PdfWriter(file);
                 PdfDocument pdf = new PdfDocument(writer);
                 Document document = new Document(pdf);
+                List<Expense> sortedExpenses = new java.util.ArrayList<>(expenses);
+                sortedExpenses.sort(java.util.Comparator.comparing(Expense::getExpenseDate).thenComparing(Expense::getCreatedAt));
 
                 // Header Section
                 document.add(new Paragraph("EXPENSE SPLITTER REPORT")
@@ -92,7 +105,7 @@ public class ExportService {
                                 new Cell().add(new Paragraph("Involved (Share)"))
                                                 .setBackgroundColor(ColorConstants.LIGHT_GRAY));
 
-                for (Expense e : expenses) {
+                for (Expense e : sortedExpenses) {
                         boolean allSettled = e.getSplits().stream().allMatch(s -> s.isPaid());
                         String statusText = allSettled ? "Settled" : "Pending";
 
@@ -118,7 +131,7 @@ public class ExportService {
                                                         + ")")
                                         .collect(Collectors.joining("\n"));
 
-                        summaryTable.addCell(e.getCreatedAt().toString().substring(0, 10));
+                        summaryTable.addCell(e.getExpenseDate().toString());
                         summaryTable.addCell(e.getDescription());
                         summaryTable.addCell(e.getCategory() != null ? e.getCategory() : "Other");
                         summaryTable.addCell(e.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString() + " " + e.getCurrency());
@@ -159,7 +172,7 @@ public class ExportService {
                         totalShareOf.put(member.getId(), BigDecimal.ZERO);
                 }
                 String prefCode = appConfig.getCurrencyCode();
-                for (Expense e : expenses) {
+                for (Expense e : sortedExpenses) {
                         BigDecimal rate = BigDecimal.ONE;
                         if (e.getCurrency() != null && !e.getCurrency().equalsIgnoreCase(prefCode)) {
                                 rate = exchangeRateService.getExchangeRate(e.getCurrency(), prefCode);
@@ -178,7 +191,38 @@ public class ExportService {
                 }
 
                 String prefSymbol = appConfig.getSymbol(prefCode);
-                for (User member : group.getMembers()) {
+                if (group.isFamilyGroupingEnabled()) {
+                    // Use TreeMap to keep family names sorted alphabetically
+                    Map<String, BigDecimal> familyPaid = new java.util.TreeMap<>();
+                    Map<String, BigDecimal> familyShare = new java.util.TreeMap<>();
+                    Map<String, List<String>> familyMemberNames = new java.util.TreeMap<>();
+
+                    for (User member : group.getMembers()) {
+                        String key = member.getFamilyName();
+                        if (key == null || key.trim().isEmpty()) key = member.getName();
+                        
+                        familyPaid.put(key, familyPaid.getOrDefault(key, BigDecimal.ZERO).add(totalPaidBy.get(member.getId())));
+                        familyShare.put(key, familyShare.getOrDefault(key, BigDecimal.ZERO).add(totalShareOf.get(member.getId())));
+                        familyMemberNames.computeIfAbsent(key, k -> new ArrayList<>()).add(member.getName());
+                    }
+
+                    for (String fam : familyMemberNames.keySet()) {
+                        BigDecimal paid = familyPaid.get(fam);
+                        BigDecimal share = familyShare.get(fam);
+                        BigDecimal balance = paid.subtract(share);
+                        String membersStr = fam;
+                        if (familyMemberNames.get(fam).size() > 1 || !familyMemberNames.get(fam).get(0).equals(fam)) {
+                            membersStr = fam + " (" + String.join(", ", familyMemberNames.get(fam)) + ")";
+                        }
+                        balanceTable.addCell(new Cell().add(new Paragraph(membersStr).setFontSize(9)));
+                        balanceTable.addCell(prefSymbol + " " + paid.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                        balanceTable.addCell(prefSymbol + " " + share.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                        balanceTable.addCell(prefSymbol + " " + balance.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                    }
+                } else {
+                    List<User> sortedMembers = new java.util.ArrayList<>(group.getMembers());
+                    sortedMembers.sort(java.util.Comparator.comparing(User::getName));
+                    for (User member : sortedMembers) {
                         BigDecimal paid = totalPaidBy.get(member.getId());
                         BigDecimal share = totalShareOf.get(member.getId());
                         BigDecimal balance = paid.subtract(share);
@@ -186,6 +230,7 @@ public class ExportService {
                         balanceTable.addCell(prefSymbol + " " + paid.setScale(2, java.math.RoundingMode.HALF_UP).toString());
                         balanceTable.addCell(prefSymbol + " " + share.setScale(2, java.math.RoundingMode.HALF_UP).toString());
                         balanceTable.addCell(prefSymbol + " " + balance.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                    }
                 }
                 document.add(balanceTable);
 
@@ -199,6 +244,15 @@ public class ExportService {
                 } else {
                         Map<UUID, String> userNames = group.getMembers().stream()
                                         .collect(Collectors.toMap(User::getId, User::getName));
+                        
+                        // Sort settlements by 'From' name
+                        List<TransactionDto> sortedSettlements = new java.util.ArrayList<>(settlements);
+                        sortedSettlements.sort(java.util.Comparator.comparing(t -> {
+                            String name = t.getFromName();
+                            if (name == null && t.getFrom() != null) name = userNames.get(t.getFrom());
+                            return name != null ? name : "Unknown";
+                        }));
+
                         Table settTable = new Table(UnitValue.createPercentArray(new float[] { 1, 1, 1, 1 }))
                                         .useAllAvailableWidth();
                         settTable.addHeaderCell("From");
@@ -206,10 +260,12 @@ public class ExportService {
                         settTable.addHeaderCell("To");
                         settTable.addHeaderCell("Amount");
 
-                        for (TransactionDto t : settlements) {
-                                settTable.addCell(userNames.get(t.getFrom()));
+                        for (TransactionDto t : sortedSettlements) {
+                                String from = t.getFromName() != null ? t.getFromName() : userNames.get(t.getFrom());
+                                String to = t.getToName() != null ? t.getToName() : userNames.get(t.getTo());
+                                settTable.addCell(from);
                                 settTable.addCell("owes");
-                                settTable.addCell(userNames.get(t.getTo()));
+                                settTable.addCell(to);
                                 String currencyCode = appConfig.getCurrencyCode();
                                 String symbol = appConfig.getSymbol(currencyCode);
                                 settTable.addCell(symbol + " " + t.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString() + " " + currencyCode);
@@ -233,8 +289,10 @@ public class ExportService {
                 splitsTable.addHeaderCell(
                                 new Cell().add(new Paragraph("Status")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
 
-                for (User member : group.getMembers()) {
-                        for (Expense e : expenses) {
+                List<User> sortedMembersPdf = new java.util.ArrayList<>(group.getMembers());
+                sortedMembersPdf.sort(java.util.Comparator.comparing(User::getName));
+                for (User member : sortedMembersPdf) {
+                        for (Expense e : sortedExpenses) {
                                 for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
                                         if (split.getUser().getId().equals(member.getId())) {
                                                 splitsTable.addCell(member.getName());
@@ -271,6 +329,8 @@ public class ExportService {
          */
         public void exportGroupToCsv(Group group, List<Expense> expenses, List<TransactionDto> settlements,
                         PrintWriter writer) {
+                List<Expense> sortedExpenses = new java.util.ArrayList<>(expenses);
+                sortedExpenses.sort(java.util.Comparator.comparing(Expense::getExpenseDate).thenComparing(Expense::getCreatedAt));
                 // Headers
                 writer.println("EXPENSE SPLITTER REPORT");
                 writer.println("Group Name," + escapeCsv(group.getName()));
@@ -281,7 +341,7 @@ public class ExportService {
                 // 1. Expenses Summary Table
                 writer.println("--- EXPENSE SUMMARY ---");
                 writer.println("Date,Description,Category,Total Amount,Paid By,Payment Mode,Status,Involved Members (Shares)");
-                for (Expense e : expenses) {
+                for (Expense e : sortedExpenses) {
                         String status = e.getSplits().stream().allMatch(s -> s.isPaid()) ? "Settled" : "Pending";
                         String involved = e.getSplits().stream()
                                         .map(s -> s.getUser().getName() + (s.isPaid() ? " [Settled]" : "") + ": "
@@ -295,7 +355,7 @@ public class ExportService {
                                                         + ")")
                                         .collect(Collectors.joining(" | "));
 
-                        writer.println(e.getCreatedAt().toString().substring(0, 10) + "," +
+                        writer.println(e.getExpenseDate().toString() + "," +
                                         escapeCsv(e.getDescription()) + "," +
                                         escapeCsv(e.getCategory() != null ? e.getCategory() : "Other") + "," +
                                         e.getAmount().setScale(2, java.math.RoundingMode.HALF_UP) + " " + e.getCurrency() + "," +
@@ -309,8 +369,10 @@ public class ExportService {
                 // 2. Detailed Splits Table
                 writer.println("--- DETAILED INDIVIDUAL SPLITS ---");
                 writer.println("Member Name,Expense Description,Owed Amount,Paid Amount,Status");
-                for (User member : group.getMembers()) {
-                        for (Expense e : expenses) {
+                List<User> sortedMembersCsv = new java.util.ArrayList<>(group.getMembers());
+                sortedMembersCsv.sort(java.util.Comparator.comparing(User::getName));
+                for (User member : sortedMembersCsv) {
+                        for (Expense e : sortedExpenses) {
                                 for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
                                         if (split.getUser().getId().equals(member.getId())) {
                                                 String splitStatus = split.isPaid() ? "Settled" : "Pending";
@@ -345,7 +407,7 @@ public class ExportService {
                 }
 
                 String prefCode = appConfig.getCurrencyCode();
-                for (Expense e : expenses) {
+                for (Expense e : sortedExpenses) {
                         BigDecimal rate = BigDecimal.ONE;
                         if (e.getCurrency() != null && !e.getCurrency().equalsIgnoreCase(prefCode)) {
                                 rate = exchangeRateService.getExchangeRate(e.getCurrency(), prefCode);
@@ -363,7 +425,32 @@ public class ExportService {
                         }
                 }
 
-                for (User member : group.getMembers()) {
+                if (group.isFamilyGroupingEnabled()) {
+                    // Use TreeMap to keep family names sorted alphabetically
+                    Map<String, BigDecimal> familyPaid = new java.util.TreeMap<>();
+                    Map<String, BigDecimal> familyShare = new java.util.TreeMap<>();
+
+                    for (User member : group.getMembers()) {
+                        String key = member.getFamilyName();
+                        if (key == null || key.trim().isEmpty()) key = member.getName();
+                        
+                        familyPaid.put(key, familyPaid.getOrDefault(key, BigDecimal.ZERO).add(totalPaidBy.get(member.getId())));
+                        familyShare.put(key, familyShare.getOrDefault(key, BigDecimal.ZERO).add(totalShareOf.get(member.getId())));
+                    }
+
+                    for (String fam : familyPaid.keySet()) {
+                        BigDecimal paid = familyPaid.get(fam);
+                        BigDecimal share = familyShare.get(fam);
+                        BigDecimal balance = paid.subtract(share);
+                        writer.println(escapeCsv(fam) + "," +
+                                        paid.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode + "," +
+                                        share.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode + "," +
+                                        balance.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode);
+                    }
+                } else {
+                    List<User> sortedMembers = new java.util.ArrayList<>(group.getMembers());
+                    sortedMembers.sort(java.util.Comparator.comparing(User::getName));
+                    for (User member : sortedMembers) {
                         BigDecimal paid = totalPaidBy.get(member.getId());
                         BigDecimal share = totalShareOf.get(member.getId());
                         BigDecimal balance = paid.subtract(share);
@@ -371,6 +458,7 @@ public class ExportService {
                                         paid.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode + "," +
                                         share.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode + "," +
                                         balance.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode);
+                    }
                 }
                 writer.println();
 
@@ -380,13 +468,74 @@ public class ExportService {
                 if (settlements.isEmpty()) {
                         writer.println("All settled up!,,,");
                 } else {
-                        for (TransactionDto t : settlements) {
-                                writer.println(escapeCsv(userNames.get(t.getFrom())) + ",owes," +
-                                                escapeCsv(userNames.get(t.getTo())) + "," +
+                        // Sort settlements by 'From' name
+                        List<TransactionDto> sortedSettlements = new java.util.ArrayList<>(settlements);
+                        sortedSettlements.sort(java.util.Comparator.comparing(t -> {
+                            String name = t.getFromName();
+                            if (name == null && t.getFrom() != null) name = userNames.get(t.getFrom());
+                            return name != null ? name : "Unknown";
+                        }));
+
+                        for (TransactionDto t : sortedSettlements) {
+                                String from = t.getFromName() != null ? t.getFromName() : userNames.get(t.getFrom());
+                                String to = t.getToName() != null ? t.getToName() : userNames.get(t.getTo());
+                                writer.println(escapeCsv(from) + ",owes," +
+                                                escapeCsv(to) + "," +
                                                 appConfig.getCurrencyCode() + " " +
                                                 t.getAmount().setScale(2, java.math.RoundingMode.HALF_UP));
                         }
                 }
+        }
+
+
+        public void exportGroupToJsonBackup(Group group, List<Expense> expenses, File file) throws Exception {
+                GroupBackupDto dto = new GroupBackupDto();
+                dto.name = group.getName();
+                dto.description = group.getDescription();
+                dto.budget = group.getBudget();
+                dto.budgetCurrency = group.getBudgetCurrency();
+                dto.familyGroupingEnabled = group.isFamilyGroupingEnabled();
+
+                dto.members = group.getMembers().stream().map(m -> {
+                        GroupBackupDto.UserBackupDto ud = new GroupBackupDto.UserBackupDto();
+                        ud.name = m.getName();
+                        ud.email = m.getEmail();
+                        ud.currencyPreference = m.getCurrencyPreference();
+                        ud.familyName = m.getFamilyName();
+                        return ud;
+                }).collect(Collectors.toList());
+
+                dto.expenses = expenses.stream().map(e -> {
+                        GroupBackupDto.ExpenseBackupDto ed = new GroupBackupDto.ExpenseBackupDto();
+                        ed.description = e.getDescription();
+                        ed.amount = e.getAmount();
+                        ed.currency = e.getCurrency();
+                        ed.category = e.getCategory();
+                        ed.paymentMode = e.getPaymentMode();
+                        ed.splitType = e.getSplitType() != null ? e.getSplitType().name() : null;
+                        ed.createdAt = e.getCreatedAt();
+                        ed.expenseDate = e.getExpenseDate();
+
+                        ed.payments = e.getPayments().stream().map(p -> {
+                                GroupBackupDto.PaymentBackupDto pd = new GroupBackupDto.PaymentBackupDto();
+                                pd.userEmail = p.getUser().getEmail();
+                                pd.amount = p.getAmount();
+                                return pd;
+                        }).collect(Collectors.toList());
+
+                        ed.splits = e.getSplits().stream().map(s -> {
+                                GroupBackupDto.SplitBackupDto sd = new GroupBackupDto.SplitBackupDto();
+                                sd.userEmail = s.getUser().getEmail();
+                                sd.owedAmount = s.getOwedAmount();
+                                sd.paidAmount = s.getPaidAmount();
+                                sd.isPaid = s.isPaid();
+                                return sd;
+                        }).collect(Collectors.toList());
+
+                        return ed;
+                }).collect(Collectors.toList());
+
+                objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, dto);
         }
 
         private String escapeCsv(String value) {

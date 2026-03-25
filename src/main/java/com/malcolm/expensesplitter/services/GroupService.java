@@ -73,6 +73,18 @@ public class GroupService {
         groupRepository.deleteById(groupId);
     }
 
+    public Group toggleFamilyGrouping(UUID groupId) {
+        Group group = groupRepository.findById(groupId).orElseThrow();
+        group.setFamilyGroupingEnabled(!group.isFamilyGroupingEnabled());
+        return groupRepository.save(group);
+    }
+
+    public void updateMemberFamilyName(UUID userId, String familyName) {
+        User user = userRepository.findById(userId).orElseThrow();
+        user.setFamilyName(familyName);
+        userRepository.save(user);
+    }
+
     public List<Group> getAllGroups() {
         return groupRepository.findAll();
     }

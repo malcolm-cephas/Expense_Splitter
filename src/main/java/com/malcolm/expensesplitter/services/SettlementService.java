@@ -7,7 +7,11 @@ import java.util.*;
 import com.malcolm.expensesplitter.dto.TransactionDto;
 import com.malcolm.expensesplitter.models.Expense;
 import com.malcolm.expensesplitter.models.ExpenseSplit;
+import com.malcolm.expensesplitter.models.Group;
+import com.malcolm.expensesplitter.models.User;
 import com.malcolm.expensesplitter.repositories.ExpenseRepository;
+import com.malcolm.expensesplitter.repositories.GroupRepository;
+import com.malcolm.expensesplitter.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +27,12 @@ public class SettlementService {
     private ExpenseRepository expenseRepository;
 
     @Autowired
+    private GroupRepository groupRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private ExchangeRateService exchangeRateService;
 
     @Autowired
@@ -33,10 +43,16 @@ public class SettlementService {
      */
     private static class BalanceNode {
         UUID userId;
+        String name;
         BigDecimal amount;
 
         BalanceNode(UUID userId, BigDecimal amount) {
             this.userId = userId;
+            this.amount = amount;
+        }
+
+        BalanceNode(String name, BigDecimal amount) {
+            this.name = name;
             this.amount = amount;
         }
     }
@@ -101,12 +117,33 @@ public class SettlementService {
             }
         }
 
+        Group group = groupRepository.findById(groupId).orElseThrow();
+        if (group.isFamilyGroupingEnabled()) {
+            Map<String, BigDecimal> familyBalances = new HashMap<>();
+            
+            // Map individual balances to family balances
+            for (com.malcolm.expensesplitter.models.User member : group.getMembers()) {
+                String familyKey = member.getFamilyName();
+                if (familyKey == null || familyKey.trim().isEmpty()) {
+                    familyKey = member.getName(); // Fallback to individual
+                }
+                
+                BigDecimal individualBalance = balances.getOrDefault(member.getId(), BigDecimal.ZERO);
+                familyBalances.put(familyKey, familyBalances.getOrDefault(familyKey, BigDecimal.ZERO).add(individualBalance));
+            }
+            
+            return runSimplificationAlgorithmForFamilies(familyBalances);
+        }
+
+        return runSimplificationAlgorithmForIndividuals(balances);
+    }
+
+    private List<TransactionDto> runSimplificationAlgorithmForIndividuals(Map<UUID, BigDecimal> balances) {
         // 4. Run simplification algorithm (Greedy approach)
         PriorityQueue<BalanceNode> creditors = new PriorityQueue<>((a, b) -> b.amount.compareTo(a.amount));
         PriorityQueue<BalanceNode> debtors = new PriorityQueue<>((a, b) -> b.amount.compareTo(a.amount));
 
         balances.forEach((userId, amount) -> {
-            // Use 0.001 as threshold to handle tiny floating point/division dust
             if (amount.compareTo(new BigDecimal("0.001")) > 0) {
                 creditors.add(new BalanceNode(userId, amount));
             } else if (amount.compareTo(new BigDecimal("-0.001")) < 0) {
@@ -115,25 +152,57 @@ public class SettlementService {
         });
 
         List<TransactionDto> transactions = new ArrayList<>();
-
         while (!creditors.isEmpty() && !debtors.isEmpty()) {
             BalanceNode credit = creditors.poll();
             BalanceNode debt = debtors.poll();
 
             BigDecimal settledAmount = credit.amount.min(debt.amount);
             if (settledAmount.compareTo(BigDecimal.ZERO) > 0) {
-                transactions.add(new TransactionDto(debt.userId, credit.userId, settledAmount.setScale(2, RoundingMode.HALF_UP)));
+                String creditorName = userRepository.findById(credit.userId).map(User::getName).orElse("Unknown");
+                String debtorName = userRepository.findById(debt.userId).map(User::getName).orElse("Unknown");
+                TransactionDto t = new TransactionDto(debt.userId, credit.userId, settledAmount.setScale(2, RoundingMode.HALF_UP));
+                t.setFromName(debtorName);
+                t.setToName(creditorName);
+                transactions.add(t);
             }
 
             credit.amount = credit.amount.subtract(settledAmount);
             debt.amount = debt.amount.subtract(settledAmount);
 
-            if (credit.amount.compareTo(new BigDecimal("0.001")) > 0)
-                creditors.add(credit);
-            if (debt.amount.compareTo(new BigDecimal("0.001")) > 0)
-                debtors.add(debt);
+            if (credit.amount.compareTo(new BigDecimal("0.001")) > 0) creditors.add(credit);
+            if (debt.amount.compareTo(new BigDecimal("0.001")) > 0) debtors.add(debt);
         }
+        return transactions;
+    }
 
+    private List<TransactionDto> runSimplificationAlgorithmForFamilies(Map<String, BigDecimal> balances) {
+        PriorityQueue<BalanceNode> creditors = new PriorityQueue<>((a, b) -> b.amount.compareTo(a.amount));
+        PriorityQueue<BalanceNode> debtors = new PriorityQueue<>((a, b) -> b.amount.compareTo(a.amount));
+
+        balances.forEach((familyName, amount) -> {
+            if (amount.compareTo(new BigDecimal("0.001")) > 0) {
+                creditors.add(new BalanceNode(familyName, amount));
+            } else if (amount.compareTo(new BigDecimal("-0.001")) < 0) {
+                debtors.add(new BalanceNode(familyName, amount.abs()));
+            }
+        });
+
+        List<TransactionDto> transactions = new ArrayList<>();
+        while (!creditors.isEmpty() && !debtors.isEmpty()) {
+            BalanceNode credit = creditors.poll();
+            BalanceNode debt = debtors.poll();
+
+            BigDecimal settledAmount = credit.amount.min(debt.amount);
+            if (settledAmount.compareTo(BigDecimal.ZERO) > 0) {
+                transactions.add(new TransactionDto(debt.name, credit.name, settledAmount.setScale(2, RoundingMode.HALF_UP)));
+            }
+
+            credit.amount = credit.amount.subtract(settledAmount);
+            debt.amount = debt.amount.subtract(settledAmount);
+
+            if (credit.amount.compareTo(new BigDecimal("0.001")) > 0) creditors.add(credit);
+            if (debt.amount.compareTo(new BigDecimal("0.001")) > 0) debtors.add(debt);
+        }
         return transactions;
     }
 }

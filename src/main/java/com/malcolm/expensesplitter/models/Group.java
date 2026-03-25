@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.List;
 
 @Entity
 @Table(name = "groups")
@@ -28,7 +29,31 @@ public class Group {
     private BigDecimal budget;
     private String budgetCurrency;
 
+    @jakarta.persistence.Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean familyGroupingEnabled = false;
+
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<Expense> expenses = new java.util.ArrayList<>();
+
     public Group() {
+    }
+
+    public List<Expense> getExpenses() {
+        return expenses;
+    }
+
+    public void setExpenses(List<Expense> expenses) {
+        this.expenses = expenses;
+    }
+
+    public void addExpense(Expense expense) {
+        expenses.add(expense);
+        expense.setGroup(this);
+    }
+
+    public void removeExpense(Expense expense) {
+        expenses.remove(expense);
+        expense.setGroup(null);
     }
 
     public Group(String name, String description, User createdBy) {
@@ -91,5 +116,13 @@ public class Group {
 
     public void setMembers(Set<User> members) {
         this.members = members;
+    }
+
+    public boolean isFamilyGroupingEnabled() {
+        return familyGroupingEnabled;
+    }
+
+    public void setFamilyGroupingEnabled(boolean familyGroupingEnabled) {
+        this.familyGroupingEnabled = familyGroupingEnabled;
     }
 }
