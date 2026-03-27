@@ -3,10 +3,13 @@ package com.malcolm.expensesplitter.controllers;
 import com.malcolm.expensesplitter.models.Group;
 import com.malcolm.expensesplitter.models.User;
 import com.malcolm.expensesplitter.services.ExpenseService;
+import com.malcolm.expensesplitter.services.ExchangeRateService;
+import java.io.IOException;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.application.Platform;
 import javafx.stage.Stage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -25,6 +28,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.time.LocalDate;
 import javafx.util.StringConverter;
+import org.springframework.context.ApplicationContext;
+import javafx.scene.Scene;
+import javafx.stage.Modality;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
 
 @Controller
 @Scope("prototype")
@@ -35,6 +43,12 @@ public class AddExpenseController {
 
     @Autowired
     private AppConfig appConfig;
+
+    @Autowired
+    private ApplicationContext applicationContext;
+
+    @Autowired
+    private ExchangeRateService exchangeRateService;
 
     @FXML
     private TextField descriptionField;
@@ -118,11 +132,21 @@ public class AddExpenseController {
         });
 
         currencyComboBox.setItems(
-                FXCollections.observableArrayList("INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD", "AED", "BTC", "ETH", "USDT"));
+                FXCollections.observableArrayList("INR", "USD", "EUR", "GBP", "SGD", "AED", "Other..."));
+
+        currencyComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if ("Other...".equals(newVal)) {
+                handleOtherCurrency(oldVal);
+            }
+        });
+
         if (appConfig != null && appConfig.getCurrencyCode() != null) {
-            currencyComboBox.getSelectionModel().select(appConfig.getCurrencyCode());
-            multiplePayersSentinel = new User("Multiple Payers...", "multp@splitter.internal",
-                    appConfig.getCurrencyCode());
+            String initialCode = appConfig.getCurrencyCode();
+            if (!currencyComboBox.getItems().contains(initialCode)) {
+                currencyComboBox.getItems().add(0, initialCode);
+            }
+            currencyComboBox.getSelectionModel().select(initialCode);
+            multiplePayersSentinel = new User("Multiple Payers...", "multp@splitter.internal", initialCode);
         } else {
             currencyComboBox.getSelectionModel().selectFirst();
             multiplePayersSentinel = new User("Multiple Payers...", "multp@splitter.internal", "INR");
@@ -229,7 +253,11 @@ public class AddExpenseController {
             categoryComboBox.setValue(expense.getCategory());
             expenseDatePicker.setValue(expense.getExpenseDate());
             if (expense.getCurrency() != null && !expense.getCurrency().isEmpty()) {
-                currencyComboBox.setValue(expense.getCurrency());
+                String cur = expense.getCurrency();
+                if (!currencyComboBox.getItems().contains(cur)) {
+                    currencyComboBox.getItems().add(0, cur);
+                }
+                currencyComboBox.getSelectionModel().select(cur);
             } else {
                 currencyComboBox.getSelectionModel().selectFirst();
             }
@@ -529,7 +557,7 @@ public class AddExpenseController {
             try {
                 BigDecimal expected = new BigDecimal(amountField.getText());
                 if (totalPaid.compareTo(expected) != 0) {
-                    errorMessage += "Total paid amounts (" + totalPaid + ") must equal expense amount (" + expected
+                    errorMessage += "Total paid amounts (" + appConfig.formatAmount(totalPaid) + ") must equal expense amount (" + appConfig.formatAmount(expected)
                             + ")!\n";
                 }
             } catch (Exception e) {
@@ -553,7 +581,7 @@ public class AddExpenseController {
             }
             BigDecimal expected = new BigDecimal(amountField.getText());
             if (total.compareTo(expected) != 0) {
-                errorMessage += "Total exact amounts (" + total + ") must equal expense amount (" + expected + ")!\n";
+                errorMessage += "Total exact amounts (" + appConfig.formatAmount(total) + ") must equal expense amount (" + appConfig.formatAmount(expected) + ")!\n";
             }
         } else if (selectedTab.getText().contains("Percentages")) {
             BigDecimal totalPercent = BigDecimal.ZERO;
@@ -569,7 +597,7 @@ public class AddExpenseController {
                 }
             }
             if (totalPercent.compareTo(new BigDecimal("100")) != 0) {
-                errorMessage += "Total percentage must be exactly 100% (currently " + totalPercent + "%)!\n";
+                errorMessage += "Total percentage must be exactly 100% (currently " + appConfig.formatAmount(totalPercent) + "%)!\n";
             }
         }
 
@@ -613,6 +641,44 @@ public class AddExpenseController {
             } catch (Exception e) {
                 // Ignore parsing errors during typing
             }
+        }
+    }
+
+    private void handleOtherCurrency(String previousValue) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/currency_selection_modal.fxml"));
+            loader.setControllerFactory(applicationContext::getBean);
+            Parent root = loader.load();
+
+            CurrencySelectionController controller = loader.getController();
+            Stage stage = new Stage();
+            stage.setTitle("Select Currency");
+            stage.initModality(Modality.WINDOW_MODAL);
+            stage.initOwner(dialogStage);
+            stage.setScene(new Scene(root));
+
+            controller.setDialogStage(stage);
+            controller.setCurrencies(exchangeRateService.getAllCurrencies());
+
+            stage.showAndWait();
+
+            if (controller.isSelectionConfirmed()) {
+                String code = controller.getSelectedCurrencyCode();
+                if (!currencyComboBox.getItems().contains(code)) {
+                    currencyComboBox.getItems().add(currencyComboBox.getItems().size() - 1, code);
+                }
+                currencyComboBox.getSelectionModel().select(code);
+            } else {
+                // Revert to previous value if canceled
+                Platform.runLater(() -> currencyComboBox.getSelectionModel().select(previousValue));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error");
+            alert.setContentText("Could not load currency selection dialog.");
+            alert.showAndWait();
+            Platform.runLater(() -> currencyComboBox.getSelectionModel().select(previousValue));
         }
     }
 }

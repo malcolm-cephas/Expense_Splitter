@@ -62,7 +62,7 @@ public class SettleUpController {
                     String currencyCode = appConfig.getCurrencyCode();
                     String symbol = appConfig.getSymbol(currencyCode);
                     setText(fromName + " needs to pay " + toName + " : " + symbol + " " 
-                            + item.getAmount() + " " + currencyCode);
+                            + appConfig.formatAmount(item.getAmount(), currencyCode) + " " + currencyCode);
                 }
             }
         });

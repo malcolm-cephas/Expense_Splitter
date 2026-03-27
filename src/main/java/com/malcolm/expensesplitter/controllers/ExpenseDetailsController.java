@@ -56,7 +56,7 @@ public class ExpenseDetailsController {
                 : "INR";
         String symbol = appConfig.getSymbol(currency);
         expenseInfoLabel.setText(
-                expense.getDescription() + " - " + symbol + expense.getAmount() + " " + currency
+                expense.getDescription() + " - " + symbol + appConfig.formatAmount(expense.getAmount(), currency) + " " + currency
                         + " ("
                         + payerText + ")");
 
@@ -81,7 +81,7 @@ public class ExpenseDetailsController {
             String symbol = appConfig.getSymbol(currency);
             Label infoLabel = new Label(
                     split.getUser().getName() + " owes " + symbol
-                            + split.getOwedAmount().stripTrailingZeros().toPlainString() + " " + currency);
+                            + appConfig.formatAmount(split.getOwedAmount(), currency) + " " + currency);
             infoLabel.setPrefWidth(250);
 
             TextField paidField = new TextField(split.getPaidAmount().stripTrailingZeros().toPlainString());

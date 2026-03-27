@@ -98,18 +98,15 @@ public class ExportService {
 
                         Paragraph budgetPara = new Paragraph()
                                         .add(new Text("Budget: ").setBold())
-                                        .add(new Text(budgetSymbol
-                                                        + budget.setScale(2, java.math.RoundingMode.HALF_UP).toString()
+                                        .add(new Text(budgetSymbol + appConfig.formatAmount(budget, budgetCurrency)
                                                         + " " + budgetCurrency))
                                         .add(new Text("  |  "))
                                         .add(new Text("Total Spent: ").setBold())
-                                        .add(new Text(budgetSymbol + totalSpent
-                                                        .setScale(2, java.math.RoundingMode.HALF_UP).toString()))
+                                        .add(new Text(budgetSymbol + appConfig.formatAmount(totalSpent, budgetCurrency)))
                                         .add(new Text("  |  "))
                                         .add(new Text("Remaining: ").setBold());
 
-                        Text remainingText = new Text(budgetSymbol
-                                        + remaining.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                        Text remainingText = new Text(budgetSymbol + appConfig.formatAmount(remaining, budgetCurrency));
                         if (remaining.compareTo(BigDecimal.ZERO) < 0) {
                                 remainingText.setFontColor(ColorConstants.RED);
                         } else {
@@ -177,7 +174,7 @@ public class ExportService {
                                         involvedPara.add(new Text("[" + splits.size() + " mem] ").setBold());
                                         involvedPara.add(new Text(famName).setBold());
                                         involvedPara.add(new Text(": " + e.getCurrency() + " "
-                                                        + familyOwed.setScale(2, java.math.RoundingMode.HALF_UP)));
+                                                        + appConfig.formatAmount(familyOwed, e.getCurrency())));
 
                                         if (familyAllSettled) {
                                                 involvedPara.add(new Text(" [Settled]")
@@ -210,7 +207,7 @@ public class ExportService {
                                         }
                                         involvedPara.add(new Text(" ("
                                                         + e.getCurrency() + " "
-                                                        + s.getOwedAmount().setScale(2, java.math.RoundingMode.HALF_UP)
+                                                        + appConfig.formatAmount(s.getOwedAmount(), e.getCurrency())
                                                         + ")"));
                                         if (i < e.getSplits().size() - 1) {
                                                 involvedPara.add(new Text("\n"));
@@ -221,14 +218,14 @@ public class ExportService {
                         String paidByStr = e.getPayments().stream()
                                         .map(p -> p.getUser().getName() + " ("
                                                         + e.getCurrency() + " "
-                                                        + p.getAmount().setScale(2, java.math.RoundingMode.HALF_UP)
+                                                        + appConfig.formatAmount(p.getAmount(), e.getCurrency())
                                                         + ")")
                                         .collect(Collectors.joining("\n"));
 
                         summaryTable.addCell(e.getExpenseDate().toString());
                         summaryTable.addCell(e.getDescription());
                         summaryTable.addCell(e.getCategory() != null ? e.getCategory() : "Other");
-                        summaryTable.addCell(e.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString() + " "
+                        summaryTable.addCell(appConfig.formatAmount(e.getAmount(), e.getCurrency()) + " "
                                         + e.getCurrency());
                         summaryTable.addCell(new Cell().add(new Paragraph(paidByStr).setFontSize(9)));
 
@@ -314,12 +311,9 @@ public class ExportService {
                                         membersStr = fam + " (" + String.join(", ", familyMemberNames.get(fam)) + ")";
                                 }
                                 balanceTable.addCell(new Cell().add(new Paragraph(membersStr).setFontSize(9)));
-                                balanceTable.addCell(prefSymbol + " "
-                                                + paid.setScale(2, java.math.RoundingMode.HALF_UP).toString());
-                                balanceTable.addCell(prefSymbol + " "
-                                                + share.setScale(2, java.math.RoundingMode.HALF_UP).toString());
-                                balanceTable.addCell(prefSymbol + " "
-                                                + balance.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                                balanceTable.addCell(prefSymbol + " " + appConfig.formatAmount(paid));
+                                balanceTable.addCell(prefSymbol + " " + appConfig.formatAmount(share));
+                                balanceTable.addCell(prefSymbol + " " + appConfig.formatAmount(balance));
                         }
                 } else {
                         List<User> sortedMembers = new java.util.ArrayList<>(group.getMembers());
@@ -329,12 +323,9 @@ public class ExportService {
                                 BigDecimal share = totalShareOf.get(member.getId());
                                 BigDecimal balance = paid.subtract(share);
                                 balanceTable.addCell(member.getName());
-                                balanceTable.addCell(prefSymbol + " "
-                                                + paid.setScale(2, java.math.RoundingMode.HALF_UP).toString());
-                                balanceTable.addCell(prefSymbol + " "
-                                                + share.setScale(2, java.math.RoundingMode.HALF_UP).toString());
-                                balanceTable.addCell(prefSymbol + " "
-                                                + balance.setScale(2, java.math.RoundingMode.HALF_UP).toString());
+                                balanceTable.addCell(prefSymbol + " " + appConfig.formatAmount(paid));
+                                balanceTable.addCell(prefSymbol + " " + appConfig.formatAmount(share));
+                                balanceTable.addCell(prefSymbol + " " + appConfig.formatAmount(balance));
                         }
                 }
                 document.add(balanceTable);
@@ -375,7 +366,7 @@ public class ExportService {
                                 String currencyCode = appConfig.getCurrencyCode();
                                 String symbol = appConfig.getSymbol(currencyCode);
                                 settTable.addCell(symbol + " "
-                                                + t.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).toString()
+                                                + appConfig.formatAmount(t.getAmount())
                                                 + " " + currencyCode);
                         }
                         document.add(settTable);
@@ -405,12 +396,8 @@ public class ExportService {
                                         if (split.getUser().getId().equals(member.getId())) {
                                                 splitsTable.addCell(member.getName());
                                                 splitsTable.addCell(e.getDescription());
-                                                splitsTable.addCell(e.getCurrency() + " " + split.getOwedAmount()
-                                                                .setScale(2, java.math.RoundingMode.HALF_UP)
-                                                                .toString());
-                                                splitsTable.addCell(e.getCurrency() + " " + split.getPaidAmount()
-                                                                .setScale(2, java.math.RoundingMode.HALF_UP)
-                                                                .toString());
+                                                splitsTable.addCell(e.getCurrency() + " " + appConfig.formatAmount(split.getOwedAmount(), e.getCurrency()));
+                                                splitsTable.addCell(e.getCurrency() + " " + appConfig.formatAmount(split.getPaidAmount(), e.getCurrency()));
 
                                                 Cell statusCell = new Cell().add(
                                                                 new Paragraph(split.isPaid() ? "Settled" : "Pending"));

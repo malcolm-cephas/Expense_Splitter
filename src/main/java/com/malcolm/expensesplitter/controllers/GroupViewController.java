@@ -102,7 +102,7 @@ public class GroupViewController {
                     setContextMenu(null);
                 } else {
                     String family = item.getFamilyName() != null ? " [" + item.getFamilyName() + "]" : "";
-                    setText(item.getName() + family + " (" + item.getEmail() + ")");
+                    setText(item.getName() + family);
                     // Ensure the item is selected on right click if not already
                     setOnMousePressed(event -> {
                         if (event.isSecondaryButtonDown()) {
@@ -129,8 +129,7 @@ public class GroupViewController {
                     String currency = item.getCurrency() != null && !item.getCurrency().isEmpty() ? item.getCurrency()
                             : "INR";
                     String symbol = appConfig.getSymbol(currency);
-                    setText(item.getDescription() + category + " - " + symbol + item.getAmount()
-                            .stripTrailingZeros().toPlainString() + " "
+                    setText(item.getDescription() + category + " - " + symbol + appConfig.formatAmount(item.getAmount(), currency) + " "
                             + currency + mode + date);
                     // Ensure the item is selected on right click
                     setOnMousePressed(event -> {
@@ -185,8 +184,8 @@ public class GroupViewController {
                 String symbol = appConfig.getSymbol(currency);
                 
                 groupBudgetLabel.setText(String.format("Budget: %s%s | Remaining: %s%s", 
-                    symbol, budget.stripTrailingZeros().toPlainString(),
-                    symbol, remaining.stripTrailingZeros().toPlainString()));
+                    symbol, appConfig.formatAmount(budget, currency),
+                    symbol, appConfig.formatAmount(remaining, currency)));
                 
                 double progress = spent.doubleValue() / budget.doubleValue();
                 budgetProgressBar.setProgress(progress);

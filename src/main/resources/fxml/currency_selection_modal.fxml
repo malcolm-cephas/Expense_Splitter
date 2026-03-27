@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.malcolm.expensesplitter.controllers.CurrencySelectionController"
+      spacing="15.0" prefWidth="400.0" prefHeight="500.0" styleClass="background">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="Select Currency" styleClass="title-2"/>
+    <Label text="Search by name or currency code (e.g. USD, EUR, Japanese Yen)" styleClass="text-muted"/>
+
+    <TextField fx:id="searchField" promptText="Search currencies..." style="-fx-font-size: 14px; -fx-padding: 8px;"/>
+
+    <ListView fx:id="currencyListView" VBox.vgrow="ALWAYS" style="-fx-background-radius: 5px;"/>
+
+    <HBox spacing="10.0" alignment="CENTER_RIGHT">
+        <Button text="Cancel" onAction="#handleCancel"/>
+        <Button text="Select" onAction="#handleConfirm" styleClass="accent"/>
+    </HBox>
+</VBox>

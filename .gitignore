@@ -30,6 +30,7 @@ bin/
 data/
 *.db
 exchange_rates.json
+currency_names.json
 *.mv.db
 *.trace.db
 

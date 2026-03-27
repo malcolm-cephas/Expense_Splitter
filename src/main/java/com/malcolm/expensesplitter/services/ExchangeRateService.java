@@ -2,6 +2,7 @@ package com.malcolm.expensesplitter.services;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -24,6 +25,8 @@ public class ExchangeRateService {
     private final java.util.Set<String> attemptedCurrenciesToday = ConcurrentHashMap.newKeySet();
     private LocalDate lastFetchDate;
     private final File cacheFile = new File("exchange_rates.json");
+    private final File currencyNamesFile = new File("currency_names.json");
+    private final Map<String, String> currencyNamesCache = new ConcurrentHashMap<>();
 
     public ExchangeRateService(ObjectMapper objectMapper) {
         this.httpClient = HttpClient.newBuilder()
@@ -31,6 +34,7 @@ public class ExchangeRateService {
                 .build();
         this.objectMapper = objectMapper;
         loadCacheFromFile();
+        loadCurrencyNamesFromFile();
     }
 
     private void loadCacheFromFile() {
@@ -61,6 +65,64 @@ public class ExchangeRateService {
         } catch (IOException e) {
             System.err.println("Failed to save exchange rates cache: " + e.getMessage());
         }
+    }
+
+    private void loadCurrencyNamesFromFile() {
+        if (currencyNamesFile.exists()) {
+            try {
+                Map<String, String> names = objectMapper.readValue(currencyNamesFile, new TypeReference<Map<String, String>>() {});
+                if (names != null) {
+                    currencyNamesCache.putAll(names);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to load currency names cache: " + e.getMessage());
+            }
+        }
+        if (currencyNamesCache.isEmpty()) {
+            fetchCurrencyNames();
+        }
+    }
+
+    private void saveCurrencyNamesToFile() {
+        try {
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(currencyNamesFile, currencyNamesCache);
+        } catch (IOException e) {
+            System.err.println("Failed to save currency names: " + e.getMessage());
+        }
+    }
+
+    public void fetchCurrencyNames() {
+        String url = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json";
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(java.time.Duration.ofSeconds(5))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                Map<String, String> names = objectMapper.readValue(response.body(), new TypeReference<Map<String, String>>() {});
+                if (names != null) {
+                    currencyNamesCache.putAll(names);
+                    saveCurrencyNamesToFile();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to fetch currency names: " + e.getMessage());
+        }
+    }
+
+    public Map<String, String> getAllCurrencies() {
+        if (currencyNamesCache.isEmpty()) {
+            fetchCurrencyNames();
+        }
+        return currencyNamesCache;
+    }
+
+    public String getCurrencyName(String code) {
+        return currencyNamesCache.getOrDefault(code.toLowerCase(), code.toUpperCase());
     }
 
     public BigDecimal getExchangeRate(String fromCurrency, String toCurrency) {

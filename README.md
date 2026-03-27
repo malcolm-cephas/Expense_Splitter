@@ -46,8 +46,10 @@ Log expenses as they happen with flexible split types:
 
 ### 🌍 Multi-Currency Support
 Record expenses in any currency (INR, USD, EUR, etc.) and let the app handle the math.
+- **Smart Currency Selection**: A powerful searchable modal allows you to pick from 100+ global currencies by name or country.
+- **Advanced Financial Formatting**: Automatically applies Western, Indian (3-2), or East Asian (Myriad) digit grouping based on the currency.
 - **Live Exchange Rates**: Real-time conversion using the [Currency API](https://github.com/fawazahmed0/exchange-api).
-- **Persistent Offline Cache**: Rates are cached locally (`exchange_rates.json`) so the app works even when you're offline.
+- **Persistent Offline Cache**: Rates and currency metadata are cached locally (`exchange_rates.json`, `currency_names.json`) for seamless offline operation.
 - **Global Normalization**: All statistics and settlements are automatically normalized to your primary currency.
 
 ### 💳 Multiple Payer Support

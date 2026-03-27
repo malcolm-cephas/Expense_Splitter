@@ -49,7 +49,7 @@
     <HBox spacing="20.0" VBox.vgrow="ALWAYS">
         <!-- Expenses List -->
         <VBox HBox.hgrow="ALWAYS" spacing="10.0">
-            <Label text="Recent Expenses" styleClass="title-3"/>
+            <Label text="Expenses List" styleClass="title-3"/>
             <ListView fx:id="expenseListView" VBox.vgrow="ALWAYS">
                 <contextMenu>
                     <javafx.scene.control.ContextMenu>

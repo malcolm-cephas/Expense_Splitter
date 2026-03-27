@@ -62,7 +62,7 @@
                                 <VBox fx:id="membersCheckboxContainer" spacing="5"/>
                             </VBox>
                         </Tab>
-                        <Tab text="Exact Amount (₹)">
+                        <Tab text="Exact Amount">
                             <VBox alignment="TOP_LEFT" spacing="10">
                                 <padding><Insets top="20" bottom="20"/></padding>
                                 <Label text="Enter exact amount for each member:" styleClass="title-4"/>
