@@ -28,11 +28,18 @@ public class GroupService {
     @Autowired
     private AppConfig appConfig;
 
-    public Group createGroup(String name, String description, UUID createdById) {
+    public Group createGroup(String name, String description, UUID createdById, java.math.BigDecimal budget, String currency) {
         User creator = userRepository.findById(createdById).orElseThrow();
         Group group = new Group(name, description, creator);
+        group.setBudget(budget);
+        group.setBudgetCurrency(currency);
         group.getMembers().add(creator);
         return groupRepository.save(group);
+    }
+    
+    // Legacy support
+    public Group createGroup(String name, String description, UUID createdById) {
+        return createGroup(name, description, createdById, java.math.BigDecimal.ZERO, appConfig.getCurrencyCode());
     }
 
     public Group addMemberToGroup(UUID groupId, UUID userId) {
@@ -66,6 +73,13 @@ public class GroupService {
     public Group updateGroup(UUID groupId, String newName) {
         Group group = groupRepository.findById(groupId).orElseThrow();
         group.setName(newName);
+        return groupRepository.save(group);
+    }
+
+    public Group updateGroupBudget(UUID groupId, java.math.BigDecimal budget, String currency) {
+        Group group = groupRepository.findById(groupId).orElseThrow();
+        group.setBudget(budget);
+        group.setBudgetCurrency(currency);
         return groupRepository.save(group);
     }
 

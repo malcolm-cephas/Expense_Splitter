@@ -13,22 +13,37 @@
       spacing="20.0" VBox.vgrow="ALWAYS">
     
     <padding>
-        <Insets top="30.0" right="30.0" bottom="30.0" left="30.0"/>
+        <Insets top="10.0" right="30.0" bottom="20.0" left="30.0"/>
     </padding>
 
     <!-- Header -->
-    <HBox alignment="CENTER_LEFT" spacing="20.0">
-        <VBox spacing="5.0" HBox.hgrow="ALWAYS">
-            <Label fx:id="groupNameLabel" styleClass="title-1"/>
-            <Label fx:id="groupDescriptionLabel" styleClass="text-muted, title-4"/>
-        </VBox>
-        <javafx.scene.control.ToggleButton fx:id="familyGroupingToggle" text="👨‍👩‍👧 Family Grouping" onAction="#handleToggleFamilyGrouping"/>
-        <Button text="Add Member" onAction="#handleAddMember" styleClass="accent, large"/>
-        <Button text="Add Expense" onAction="#handleAddExpense" styleClass="accent, large"/>
-        <Button text="Settle Up" onAction="#handleSettleUp" styleClass="success, large"/>
-        <Button text="Export" onAction="#handleExport" styleClass="outlined, large"/>
-        <Button text="Stats" onAction="#handleShowStats" styleClass="outlined, large"/>
-    </HBox>
+    <VBox spacing="15.0">
+        <HBox alignment="CENTER_LEFT" spacing="20.0">
+            <VBox spacing="5.0" HBox.hgrow="ALWAYS">
+                <Label fx:id="groupNameLabel" styleClass="title-1"/>
+                <Label fx:id="groupDescriptionLabel" styleClass="text-muted, title-4"/>
+                <VBox fx:id="budgetProgressBarBox" spacing="5.0" managed="false" visible="false">
+                    <HBox spacing="10.0" alignment="CENTER_LEFT">
+                        <Label fx:id="groupBudgetLabel" styleClass="accent, title-4"/>
+                    </HBox>
+                    <HBox spacing="10.0" alignment="CENTER_LEFT">
+                        <javafx.scene.control.ProgressBar fx:id="budgetProgressBar" prefWidth="600.0" progress="0.0"/>
+                        <Label fx:id="groupBudgetPercentageLabel" styleClass="text-muted, bold"/>
+                    </HBox>
+                </VBox>
+            </VBox>
+            <javafx.scene.control.ToggleButton fx:id="familyGroupingToggle" text="👨‍👩‍👧 Family Grouping" onAction="#handleToggleFamilyGrouping"/>
+        </HBox>
+        
+        <!-- Actions Row -->
+        <HBox spacing="15.0" alignment="CENTER_RIGHT">
+            <Button text="Add Member" onAction="#handleAddMember" styleClass="accent, large"/>
+            <Button text="Add Expense" onAction="#handleAddExpense" styleClass="accent, large"/>
+            <Button text="Settle Up" onAction="#handleSettleUp" styleClass="success, large"/>
+            <Button text="Export" onAction="#handleExport" styleClass="outlined, large"/>
+            <Button text="Stats" onAction="#handleShowStats" styleClass="outlined, large"/>
+        </HBox>
+    </VBox>
 
     <!-- Content -->
     <HBox spacing="20.0" VBox.vgrow="ALWAYS">

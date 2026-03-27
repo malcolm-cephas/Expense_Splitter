@@ -64,6 +64,18 @@ public class GroupViewController {
     private Label groupDescriptionLabel;
 
     @FXML
+    private Label groupBudgetLabel;
+
+    @FXML
+    private javafx.scene.layout.VBox budgetProgressBarBox;
+
+    @FXML
+    private javafx.scene.control.ProgressBar budgetProgressBar;
+
+    @FXML
+    private Label groupBudgetPercentageLabel;
+
+    @FXML
     private ListView<Expense> expenseListView;
 
     @FXML
@@ -150,12 +162,57 @@ public class GroupViewController {
             expensesObservable.setAll(expenseService.getGroupExpenses(groupId));
             membersObservable.setAll(currentGroup.getMembers());
             familyGroupingToggle.setSelected(currentGroup.isFamilyGroupingEnabled());
+            updateBudgetDisplay();
+        }
+    }
+
+    private void updateBudgetDisplay() {
+        if (currentGroup != null && groupBudgetLabel != null) {
+            java.math.BigDecimal budget = currentGroup.getBudget();
+            if (budget == null || budget.compareTo(java.math.BigDecimal.ZERO) == 0) {
+                budgetProgressBarBox.setVisible(false);
+                budgetProgressBarBox.setManaged(false);
+            } else {
+                budgetProgressBarBox.setVisible(true);
+                budgetProgressBarBox.setManaged(true);
+                
+                java.math.BigDecimal spent = expensesObservable.stream()
+                        .map(Expense::getAmount)
+                        .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                
+                java.math.BigDecimal remaining = budget.subtract(spent);
+                String currency = currentGroup.getBudgetCurrency() != null ? currentGroup.getBudgetCurrency() : appConfig.getCurrencyCode();
+                String symbol = appConfig.getSymbol(currency);
+                
+                groupBudgetLabel.setText(String.format("Budget: %s%s | Remaining: %s%s", 
+                    symbol, budget.stripTrailingZeros().toPlainString(),
+                    symbol, remaining.stripTrailingZeros().toPlainString()));
+                
+                double progress = spent.doubleValue() / budget.doubleValue();
+                budgetProgressBar.setProgress(progress);
+                groupBudgetPercentageLabel.setText(String.format("%.1f%%", progress * 100));
+                
+                if (progress >= 1.0) {
+                    budgetProgressBar.getStyleClass().removeAll("success", "warning");
+                    budgetProgressBar.getStyleClass().add("danger");
+                    groupBudgetLabel.setStyle("-fx-text-fill: -color-danger-fg;");
+                } else if (progress >= 0.8) {
+                    budgetProgressBar.getStyleClass().removeAll("success", "danger");
+                    budgetProgressBar.getStyleClass().add("warning");
+                    groupBudgetLabel.setStyle("-fx-text-fill: -color-warning-fg;");
+                } else {
+                    budgetProgressBar.getStyleClass().removeAll("warning", "danger");
+                    budgetProgressBar.getStyleClass().add("success");
+                    groupBudgetLabel.setStyle("-fx-text-fill: -color-success-fg;");
+                }
+            }
         }
     }
 
     private void refreshExpenses() {
         if (currentGroup != null) {
             expensesObservable.setAll(expenseService.getGroupExpenses(currentGroup.getId()));
+            updateBudgetDisplay();
         }
     }
 

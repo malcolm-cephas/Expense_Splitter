@@ -67,6 +67,9 @@ public class DashboardController {
     private TextField newGroupNameField;
 
     @FXML
+    private TextField newGroupBudgetField;
+
+    @FXML
     private javafx.scene.control.ToggleButton themeToggleButton;
 
     @FXML
@@ -199,11 +202,14 @@ public class DashboardController {
                     javafx.scene.control.MenuItem renameItem = new javafx.scene.control.MenuItem("Rename Group");
                     renameItem.setOnAction(e -> handleRenameGroup(item));
                     
+                    javafx.scene.control.MenuItem budgetItem = new javafx.scene.control.MenuItem("Set Group Budget");
+                    budgetItem.setOnAction(e -> handleSetBudget(item));
+                    
                     javafx.scene.control.MenuItem deleteItem = new javafx.scene.control.MenuItem("Delete Group");
                     deleteItem.setStyle("-fx-text-fill: red;");
                     deleteItem.setOnAction(e -> handleDeleteGroup(item));
                     
-                    contextMenu.getItems().addAll(renameItem, deleteItem);
+                    contextMenu.getItems().addAll(renameItem, budgetItem, deleteItem);
                     setContextMenu(contextMenu);
                 }
             }
@@ -331,9 +337,21 @@ public class DashboardController {
     @FXML
     public void onCreateGroup() {
         String name = newGroupNameField.getText().trim();
+        String budgetText = newGroupBudgetField.getText().trim();
+        java.math.BigDecimal budget = java.math.BigDecimal.ZERO;
+        
+        if (!budgetText.isEmpty()) {
+            try {
+                budget = new java.math.BigDecimal(budgetText);
+            } catch (NumberFormatException e) {
+                // Show error or just use zero
+            }
+        }
+
         if (!name.isEmpty() && currentUserId != null) {
-            groupService.createGroup(name, "New group created from UI", currentUserId);
+            groupService.createGroup(name, "Group expenses and splitting", currentUserId, budget, appConfig.getCurrencyCode());
             newGroupNameField.clear();
+            newGroupBudgetField.clear();
             refreshGroups();
         }
     }
@@ -407,6 +425,37 @@ public class DashboardController {
             mainContentArea.getChildren().add(new javafx.scene.control.Label("Group deleted. Select another group."));
             refreshGroups();
         }
+    }
+
+    private void handleSetBudget(Group group) {
+        javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog(
+            group.getBudget() != null ? group.getBudget().toString() : "0");
+        dialog.setTitle("Set Group Budget");
+        dialog.setHeaderText("Specify budget for '" + group.getName() + "'");
+        dialog.setContentText("Budget Amount:");
+        
+        java.util.Optional<String> result = dialog.showAndWait();
+        result.ifPresent(amountStr -> {
+            try {
+                java.math.BigDecimal amount = new java.math.BigDecimal(amountStr.trim());
+                String currentCurrency = appConfig.getCurrencyCode();
+                groupService.updateGroupBudget(group.getId(), amount, currentCurrency);
+                
+                // If this group is currently being viewed, reload it
+                if (groupListView.getSelectionModel().getSelectedItem() != null && 
+                    groupListView.getSelectionModel().getSelectedItem().getId().equals(group.getId())) {
+                    loadGroupView(group.getId());
+                }
+                
+                refreshGroups();
+            } catch (NumberFormatException e) {
+                javafx.scene.control.Alert error = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+                error.setTitle("Invalid Input");
+                error.setHeaderText(null);
+                error.setContentText("Please enter a valid numeric value for the budget.");
+                error.showAndWait();
+            }
+        });
     }
 
     private void loadGroupView(UUID groupId) {

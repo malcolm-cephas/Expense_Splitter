@@ -43,10 +43,11 @@
             
             <VBox spacing="10.0">
                 <Label text="Create New Group" styleClass="title-4"/>
-                <HBox spacing="10.0">
-                    <TextField fx:id="newGroupNameField" promptText="Group Name" HBox.hgrow="ALWAYS"/>
-                    <Button text="Create" onAction="#onCreateGroup" styleClass="accent"/>
-                </HBox>
+                <VBox spacing="10.0">
+                    <TextField fx:id="newGroupNameField" promptText="Group Name"/>
+                    <TextField fx:id="newGroupBudgetField" promptText="Initial Budget (Optional)"/>
+                    <Button text="Create" onAction="#onCreateGroup" styleClass="accent" prefWidth="250.0"/>
+                </VBox>
             </VBox>
 
             <VBox spacing="10.0">
@@ -60,7 +61,7 @@
     <center>
         <VBox fx:id="mainContentArea" alignment="CENTER" spacing="20.0">
             <padding>
-                <Insets top="40.0" right="40.0" bottom="40.0" left="40.0"/>
+                <Insets top="10.0" right="30.0" bottom="30.0" left="30.0"/>
             </padding>
             <Label text="Select a group from the sidebar" styleClass="text-muted, title-3"/>
         </VBox>
