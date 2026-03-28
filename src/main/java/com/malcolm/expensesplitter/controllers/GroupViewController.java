@@ -103,6 +103,7 @@ public class GroupViewController {
                 } else {
                     String family = item.getFamilyName() != null ? " [" + item.getFamilyName() + "]" : "";
                     setText(item.getName() + family);
+                    setContextMenu(memberListView.getContextMenu());
                     // Ensure the item is selected on right click if not already
                     setOnMousePressed(event -> {
                         if (event.isSecondaryButtonDown()) {
@@ -524,6 +525,28 @@ public class GroupViewController {
 
             // Start the background thread
             new Thread(exportTask).start();
+        }
+    }
+
+    @FXML
+    public void handleSettleAllUserDebts() {
+        User selected = memberListView.getSelectionModel().getSelectedItem();
+        if (selected != null && currentGroup != null) {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Settle All Debts");
+            confirm.setHeaderText("Settle all debts for " + selected.getName());
+            confirm.setContentText("This will mark all unpaid settlements for this member as paid in the entire group. Continue?");
+            confirm.showAndWait().ifPresent(type -> {
+                if (type == javafx.scene.control.ButtonType.OK) {
+                    settlementService.settleAllUserDebts(currentGroup.getId(), selected.getId());
+                    refreshExpenses();
+                    Alert info = new Alert(Alert.AlertType.INFORMATION);
+                    info.setTitle("Success");
+                    info.setHeaderText(null);
+                    info.setContentText("All accounts for " + selected.getName() + " have been marked as settled.");
+                    info.showAndWait();
+                }
+            });
         }
     }
 

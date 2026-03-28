@@ -205,4 +205,26 @@ public class SettlementService {
         }
         return transactions;
     }
+
+    /**
+     * Marks all unpaid splits for a specific user in a group as paid.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void settleAllUserDebts(UUID groupId, UUID userId) {
+        List<Expense> expenses = expenseRepository.findByGroupIdOrderByCreatedAtDesc(groupId);
+        for (Expense expense : expenses) {
+            boolean modified = false;
+            for (ExpenseSplit split : expense.getSplits()) {
+                if (split.getUser().getId().equals(userId) && !split.isPaid()) {
+                    split.setPaidAmount(split.getOwedAmount());
+                    split.setPaid(true); // Fixed: setPaid instead of setIsPaid
+                    modified = true;
+                }
+            }
+            if (modified) {
+                expenseRepository.save(expense);
+            }
+        }
+    }
+
 }

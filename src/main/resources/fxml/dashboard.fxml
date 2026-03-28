@@ -18,7 +18,7 @@
             <padding>
                 <Insets top="10.0" right="20.0" bottom="10.0" left="20.0"/>
             </padding>
-            <Label text="💸 Expense Splitter" styleClass="title-3, accent"/>
+            <Label text="💸 Expense Splitter Pro" styleClass="title-3, accent"/>
             
             <javafx.scene.layout.Region HBox.hgrow="ALWAYS" />
             

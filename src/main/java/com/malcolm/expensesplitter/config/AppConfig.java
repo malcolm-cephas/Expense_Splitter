@@ -73,24 +73,16 @@ public class AppConfig {
 
     public String formatAmount(java.math.BigDecimal amount, String currencyCode) {
         if (amount == null)
-            return "0";
+            return "0.00";
         
         String code = (currencyCode != null) ? currencyCode.toUpperCase() : getCurrencyCode();
-        java.math.BigDecimal raw = amount.stripTrailingZeros();
-        String plain = raw.toPlainString();
+        // Force exactly 2 decimal places
+        java.math.BigDecimal scaled = amount.setScale(2, java.math.RoundingMode.HALF_UP);
+        String plain = scaled.toPlainString();
         
-        String integerPart;
-        String decimalPart = "";
         int dotIndex = plain.indexOf('.');
-        if (dotIndex >= 0) {
-            integerPart = plain.substring(0, dotIndex);
-            decimalPart = plain.substring(dotIndex);
-            if (decimalPart.length() > 3) {
-                decimalPart = decimalPart.substring(0, 3);
-            }
-        } else {
-            integerPart = plain;
-        }
+        String integerPart = plain.substring(0, dotIndex);
+        String decimalPart = plain.substring(dotIndex); // Includes . and 2 decimal digits
 
         boolean negative = integerPart.startsWith("-");
         if (negative) {
