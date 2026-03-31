@@ -109,7 +109,7 @@ public class ExpenseRestController {
                 category, 
                 expenseDate != null ? expenseDate : LocalDate.now(), 
                 splitType, splitInputs, 
-                currency != null ? currency : "INR");
+                currency != null ? currency : "INR", null);
 
         return ResponseEntity.ok(expense);
     }

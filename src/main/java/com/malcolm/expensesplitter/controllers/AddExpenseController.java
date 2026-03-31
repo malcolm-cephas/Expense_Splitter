@@ -11,6 +11,11 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.application.Platform;
 import javafx.stage.Stage;
+import javafx.stage.FileChooser;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import java.io.File;
+import com.malcolm.expensesplitter.services.ReceiptService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
@@ -49,6 +54,9 @@ public class AddExpenseController {
 
     @Autowired
     private ExchangeRateService exchangeRateService;
+
+    @Autowired
+    private ReceiptService receiptService;
 
     @FXML
     private TextField descriptionField;
@@ -94,6 +102,16 @@ public class AddExpenseController {
     @FXML
     private Button saveAndNewButton;
 
+    @FXML
+    private Label receiptPathLabel;
+
+    @FXML
+    private ImageView receiptPreview;
+
+    @FXML
+    private Button removeReceiptButton;
+
+    private String currentReceiptPath;
     private Group currentGroup;
     private Stage dialogStage;
     private boolean saveClicked = false;
@@ -162,6 +180,7 @@ public class AddExpenseController {
         categoryComboBox.getSelectionModel().selectFirst();
 
         setupDatePicker();
+        currentReceiptPath = null;
     }
 
     private void setupDatePicker() {
@@ -261,6 +280,15 @@ public class AddExpenseController {
             } else {
                 currencyComboBox.getSelectionModel().selectFirst();
             }
+
+            if (expense.getReceiptPath() != null && !expense.getReceiptPath().isEmpty()) {
+                this.currentReceiptPath = expense.getReceiptPath();
+                updateReceiptUI();
+            } else {
+                this.currentReceiptPath = null;
+                updateReceiptUI();
+            }
+
             if (saveAndNewButton != null) {
                 saveAndNewButton.setVisible(false);
                 saveAndNewButton.setManaged(false);
@@ -310,6 +338,9 @@ public class AddExpenseController {
             paymentModeComboBox.getSelectionModel().selectFirst();
             currencyComboBox.getSelectionModel().selectFirst();
             expenseDatePicker.setValue(LocalDate.now());
+
+            currentReceiptPath = null;
+            updateReceiptUI();
 
             if (saveAndNewButton != null) {
                 saveAndNewButton.setVisible(true);
@@ -499,10 +530,10 @@ public class AddExpenseController {
 
             if (expenseToEdit != null) {
                 expenseService.updateExpense(expenseToEdit.getId(), currentGroup.getId(), paymentInputs, amount,
-                        description, paymentMode, category, expenseDate, splitType, splitInputs, currency);
+                        description, paymentMode, category, expenseDate, splitType, splitInputs, currency, currentReceiptPath);
             } else {
                 expenseService.addExpense(currentGroup.getId(), paymentInputs, amount, description, paymentMode,
-                        category, expenseDate, splitType, splitInputs, currency);
+                        category, expenseDate, splitType, splitInputs, currency, currentReceiptPath);
             }
 
             saveClicked = true;
@@ -642,6 +673,64 @@ public class AddExpenseController {
                 // Ignore parsing errors during typing
             }
         }
+    }
+
+    @FXML
+    private void handleChooseReceipt() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Choose Bill/Receipt Image");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg", "*.gif")
+        );
+
+        File selectedFile = fileChooser.showOpenDialog(dialogStage);
+        if (selectedFile != null) {
+            String savedPath = receiptService.saveReceipt(selectedFile);
+            if (savedPath != null) {
+                this.currentReceiptPath = savedPath;
+                updateReceiptUI();
+            } else {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Error");
+                alert.setContentText("Could not save the receipt file.");
+                alert.showAndWait();
+            }
+        }
+    }
+
+    @FXML
+    private void handleRemoveReceipt() {
+        this.currentReceiptPath = null;
+        updateReceiptUI();
+    }
+
+    private void updateReceiptUI() {
+        if (currentReceiptPath != null && !currentReceiptPath.isEmpty()) {
+            File file = new File(currentReceiptPath);
+            if (file.exists()) {
+                receiptPathLabel.setText("Bill attached");
+                receiptPathLabel.setStyle("-fx-text-fill: green;");
+                receiptPreview.setImage(new Image(file.toURI().toString()));
+                receiptPreview.setVisible(true);
+                receiptPreview.setManaged(true);
+                removeReceiptButton.setVisible(true);
+                removeReceiptButton.setManaged(true);
+            } else {
+                resetReceiptUI();
+            }
+        } else {
+            resetReceiptUI();
+        }
+    }
+
+    private void resetReceiptUI() {
+        receiptPathLabel.setText("No bill attached");
+        receiptPathLabel.setStyle("-fx-text-fill: gray;");
+        receiptPreview.setImage(null);
+        receiptPreview.setVisible(false);
+        receiptPreview.setManaged(false);
+        removeReceiptButton.setVisible(false);
+        removeReceiptButton.setManaged(false);
     }
 
     private void handleOtherCurrency(String previousValue) {

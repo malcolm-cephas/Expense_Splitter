@@ -12,6 +12,11 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import java.io.File;
+import java.io.IOException;
+import java.awt.Desktop;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import java.time.format.DateTimeFormatter;
@@ -34,6 +39,12 @@ public class ExpenseDetailsController {
 
     @FXML
     private VBox splitsContainer;
+
+    @FXML
+    private VBox receiptContainer;
+
+    @FXML
+    private ImageView receiptImageView;
 
     private Expense currentExpense;
     private Stage dialogStage;
@@ -67,6 +78,23 @@ public class ExpenseDetailsController {
         }
 
         loadSplits();
+        loadReceipt();
+    }
+
+    private void loadReceipt() {
+        String path = currentExpense.getReceiptPath();
+        if (path != null && !path.isEmpty()) {
+            File file = new File(path);
+            if (file.exists()) {
+                Image image = new Image(file.toURI().toString());
+                receiptImageView.setImage(image);
+                receiptContainer.setVisible(true);
+                receiptContainer.setManaged(true);
+                return;
+            }
+        }
+        receiptContainer.setVisible(false);
+        receiptContainer.setManaged(false);
     }
 
     private void loadSplits() {
@@ -134,5 +162,22 @@ public class ExpenseDetailsController {
     @FXML
     private void handleClose() {
         dialogStage.close();
+    }
+
+    @FXML
+    private void handleOpenReceiptExternally() {
+        String path = currentExpense.getReceiptPath();
+        if (path != null && !path.isEmpty()) {
+            File file = new File(path);
+            if (file.exists()) {
+                if (Desktop.isDesktopSupported()) {
+                    try {
+                        Desktop.getDesktop().open(file);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
     }
 }
