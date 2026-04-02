@@ -401,7 +401,7 @@ See the [LICENSE](LICENSE) file for details.
 # 👨‍💻 Authors
 
 *Malcolm Cephas*
-- GitHub: [@malcolm-cephas](https://github.com/malcolm-cephas)
+- GitHub: [@Malcolm Cephas](https://github.com/malcolm-cephas)
 
 *Marcus Franklin J*
 - GitHub: [@Marcus Franklin J](https://github.com/MarcusFranklin-GIT)
