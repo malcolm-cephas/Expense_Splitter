@@ -3,12 +3,23 @@
 :root {
   --bg-color: #f4f4f4;
   --surface-color: #ffffff;
-  --primary-color: #0078d7; /* Classic Windows/JavaFX accent */
+  --primary-color: #0078d7;
   --text-main: #333333;
   --text-muted: #666666;
   --border-color: #cccccc;
   --list-hover: #e5f3ff;
   --list-selected: #cce8ff;
+}
+
+:root.dark-theme {
+  --bg-color: #1e1e1e;
+  --surface-color: #2b2b2b;
+  --primary-color: #4daafc;
+  --text-main: #e0e0e0;
+  --text-muted: #aaaaaa;
+  --border-color: #444444;
+  --list-hover: #3a3a3a;
+  --list-selected: #005a9e;
 }
 
 body {
@@ -98,14 +109,14 @@ body {
   border-radius: 2px;
   overflow-y: auto;
   margin-bottom: 20px;
-  background-color: white;
+  background-color: var(--surface-color);
   min-height: 200px;
 }
 
 .list-item {
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -127,28 +138,28 @@ body {
 
 .fx-button {
   padding: 6px 12px;
-  background-color: #e1e1e1;
-  border: 1px solid #adadad;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
   border-radius: 2px;
   cursor: pointer;
-  color: black;
+  color: var(--text-main);
   width: 100%;
   text-align: center;
 }
 
 .fx-button:hover {
-  background-color: #e5f1fb;
-  border-color: #0078d7;
+  background-color: var(--list-hover);
+  border-color: var(--primary-color);
 }
 
 .fx-button.accent {
   background-color: var(--primary-color);
   color: white;
-  border: 1px solid #005a9e;
+  border: 1px solid var(--primary-color);
 }
 
 .fx-button.accent:hover {
-  background-color: #005a9e;
+  filter: brightness(0.9);
 }
 
 /* Content Area (Center) */
@@ -173,4 +184,50 @@ body {
 /* Utilities */
 .text-muted {
   color: var(--text-muted);
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  width: 500px;
+  max-width: 90vw;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: bold;
+  font-size: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-body {
+  padding: 20px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
