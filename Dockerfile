@@ -26,7 +26,7 @@ COPY --from=frontend-builder /app/dist ./src/main/resources/static
 RUN mvn package -DskipTests
 
 # Stage 3: The Runtime Image
-FROM openjdk:17-slim
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=backend-builder /app/target/expense-splitter-*.jar app.jar
 
