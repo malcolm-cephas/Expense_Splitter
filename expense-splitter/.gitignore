@@ -1,0 +1,52 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.restore
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/
+
+# Eclipse
+.settings/
+.project
+.classpath
+bin/
+
+# H2 Database & Local Storage
+data/
+*.db
+exchange_rates.json
+currency_names.json
+*.mv.db
+*.trace.db
+Host steps.md
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & Temp
+logs/
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Others
+.directory
+.gemini/
