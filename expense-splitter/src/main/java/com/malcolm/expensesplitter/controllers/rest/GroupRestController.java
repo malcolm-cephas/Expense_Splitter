@@ -184,4 +184,39 @@ public class GroupRestController {
          group.getMembers().removeIf(m -> m.getId().equals(memberId));
          return ResponseEntity.ok(groupRepository.save(group));
     }
+
+    @PatchMapping("/{id}/family-grouping")
+    public ResponseEntity<Group> toggleFamilyGrouping(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        User user = userService.getOrCreateUserFromJwt(jwt);
+        Group group = groupRepository.findById(id).orElseThrow();
+        if (!group.getMembers().contains(user)) return ResponseEntity.status(403).build();
+        
+        group.setFamilyGroupingEnabled(!group.isFamilyGroupingEnabled());
+        return ResponseEntity.ok(groupRepository.save(group));
+    }
+
+    @PatchMapping("/members/{memberId}/family")
+    public ResponseEntity<Void> updateMemberFamily(
+            @PathVariable UUID memberId,
+            @RequestParam String familyName,
+            @AuthenticationPrincipal Jwt jwt) {
+        // Technically this updates the User globally, matching desktop behavior
+        User user = userRepository.findById(memberId).orElseThrow();
+        user.setFamilyName(familyName);
+        userRepository.save(user);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteGroup(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        User requester = userService.getOrCreateUserFromJwt(jwt);
+        Group group = groupRepository.findById(id).orElseThrow();
+        
+        if (!group.getCreatedBy().equals(requester)) {
+             return ResponseEntity.status(403).build();
+        }
+        
+        groupRepository.delete(group);
+        return ResponseEntity.noContent().build();
+    }
 }

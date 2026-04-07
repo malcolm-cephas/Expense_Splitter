@@ -107,6 +107,7 @@ public class ExpenseRestController {
             @RequestParam(required = false) String paymentMode,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate expenseDate,
             @RequestParam SplitType splitType,
+            @RequestParam(required = false) List<UUID> splitMemberIds,
             @RequestParam(required = false) String currency,
             @RequestParam(required = false) boolean ignoreDuplicate,
             @AuthenticationPrincipal Jwt jwt) {
@@ -129,15 +130,24 @@ public class ExpenseRestController {
             }
         }
 
-        // Mocking splitInputs as equal for all group members if not provided
-        // In a real API, we'd accept Map<UUID, BigDecimal> splitInputs
-        Map<UUID, BigDecimal> splitInputs = new HashMap<>(); 
-        Expense expense = expenseService.addExpense(groupId, paidById, amount, description, 
-                paymentMode != null ? paymentMode : "Other", 
-                category, 
-                expenseDate != null ? expenseDate : LocalDate.now(), 
-                splitType, splitInputs, 
-                currency != null ? currency : "INR", null);
+        // Use the equal split helper if no specific inputs provided
+        Expense expense;
+        if (splitType == SplitType.EQUAL) {
+            Set<UUID> memberSet = splitMemberIds != null ? new HashSet<>(splitMemberIds) : null;
+            expense = expenseService.addEqualExpense(groupId, paidById, amount, description, 
+                    paymentMode != null ? paymentMode : "Other", 
+                    category, 
+                    expenseDate != null ? expenseDate : LocalDate.now(), 
+                    memberSet);
+        } else {
+            Map<UUID, BigDecimal> splitInputs = new HashMap<>(); 
+            expense = expenseService.addExpense(groupId, paidById, amount, description, 
+                    paymentMode != null ? paymentMode : "Other", 
+                    category, 
+                    expenseDate != null ? expenseDate : LocalDate.now(), 
+                    splitType, splitInputs, 
+                    currency != null ? currency : "INR", null);
+        }
 
         return ResponseEntity.ok(expense);
     }
