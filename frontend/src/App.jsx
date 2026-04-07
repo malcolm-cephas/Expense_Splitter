@@ -11,6 +11,13 @@ function App() {
   const [loadingData, setLoadingData] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
 
+  // New Group State
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupBudget, setNewGroupBudget] = useState("");
+  
+  // Default currency
+  const [currency, setCurrency] = useState("INR");
+
   useEffect(() => {
     const fetchGroups = async () => {
       if (!isAuthenticated) return;
@@ -30,6 +37,27 @@ function App() {
     fetchGroups();
   }, [isAuthenticated, getAccessTokenSilently]);
 
+  const handleCreateGroup = async () => {
+    if (!newGroupName) return alert("Please enter a group name");
+    try {
+      const token = await getAccessTokenSilently();
+      const budgetVal = newGroupBudget ? parseFloat(newGroupBudget) : 0;
+      const response = await axios.post(`${API_BASE}/groups`, {
+        name: newGroupName,
+        budget: budgetVal,
+        budgetCurrency: currency
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setGroups([...groups, response.data]);
+      setNewGroupName("");
+      setNewGroupBudget("");
+    } catch(e) {
+      console.error(e);
+      alert("Failed to create group");
+    }
+  };
+
   return (
     <div className="app-border-pane">
       {/* Top Header */}
@@ -38,11 +66,11 @@ function App() {
           💸 Expense Splitter Pro
         </div>
         <div className="header-tools">
-          <button className="fx-button" style={{ width: '90px' }} onClick={() => alert('Theme toggle disabled for classic styling.')}>
+          <button className="fx-button" style={{ width: '90px', visibility: 'hidden' }}>
             🌙 Dark
           </button>
           <span className="text-muted">Default Currency: </span>
-          <input type="text" className="currency-input" placeholder="Search currency (e.g. INR)" />
+          <input type="text" className="currency-input" value={currency} onChange={e => setCurrency(e.target.value)} placeholder="Search currency (e.g. INR)" />
           {isAuthenticated ? (
              <button className="fx-button" style={{ width: '80px', marginLeft: '10px' }} onClick={() => logout({ returnTo: window.location.origin })}>
                Logout
@@ -82,13 +110,13 @@ function App() {
 
           <h4>Create New Group</h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            <input type="text" className="fx-input" placeholder="Group Name" />
-            <input type="text" className="fx-input" placeholder="Initial Budget (Optional)" />
-            <button className="fx-button accent" onClick={() => alert('Create button clicked - functionality soon!')}>Create</button>
+            <input type="text" className="fx-input" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Group Name" />
+            <input type="text" className="fx-input" value={newGroupBudget} onChange={e => setNewGroupBudget(e.target.value)} placeholder="Initial Budget (Optional)" />
+            <button className="fx-button accent" onClick={handleCreateGroup}>Create</button>
           </div>
 
           <h4>Tools</h4>
-          <button className="fx-button" onClick={() => alert('Import features coming soon.')}>📂 Import Group Backup</button>
+          <button className="fx-button" disabled>📂 Import Group Backup</button>
         </div>
 
         {/* Center Main Content Area */}

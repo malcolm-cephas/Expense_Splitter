@@ -44,6 +44,17 @@ public class GroupRestController {
         return ResponseEntity.ok(groupRepository.findByMembersId(user.getId()));
     }
 
+    @PostMapping
+    public ResponseEntity<Group> createGroup(@RequestBody Group groupData, @AuthenticationPrincipal Jwt jwt) {
+        User user = userService.getOrCreateUserFromJwt(jwt);
+        groupData.setCreatedBy(user);
+        groupData.getMembers().add(user);
+        if (groupData.getBudgetCurrency() == null) {
+            groupData.setBudgetCurrency("INR");
+        }
+        return ResponseEntity.ok(groupRepository.save(groupData));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Group> getGroup(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         User user = userService.getOrCreateUserFromJwt(jwt);
