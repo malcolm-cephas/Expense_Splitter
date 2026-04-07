@@ -13,7 +13,7 @@ Supabase offers a free, high-performance PostgreSQL database that never expires.
 3. **Get JDBC URL**:
    - Go to **Project Settings** > **Database**.
    - Copy the **Connection String** for JDBC. It will look like: 
-     `jdbc:postgresql://db.[id].supabase.co:5432/postgres`
+     `jdbc:postgresql://db.[id].supabase.co:5432/postgres?sslmode=require`
 4. **Database Password**: Make sure you remember the password you set during project creation.
 
 ## 🔐 Step 2: Configure Your Free Identity (Auth0)
@@ -33,10 +33,9 @@ Render will build and run your entire project automatically using the provided `
    - **Instance Type**: `Free ($0/month)`.
    - **Runtime**: `Docker`.
 3. **Environment Variables**: Add these in the "Environment" tab:
-   - `SPRING_DATASOURCE_URL`: (Your Supabase JDBC URI)
+   - `SPRING_DATASOURCE_URL`: (Your Supabase JDBC URI, ensure it ends with `?sslmode=require`)
    - `SPRING_DATASOURCE_USERNAME`: `postgres`
    - `SPRING_DATASOURCE_PASSWORD`: (Your Supabase Password)
-   - `SPRING_JPA_DIALECT`: `org.hibernate.dialect.PostgreSQLDialect`
    - `AUTH0_ISSUER_URI`: `https://[YOUR_DOMAIN].auth0.com/` 
    - `AUTH0_AUDIENCE`: `https://expensesplitter.api`
    - `VITE_AUTH0_DOMAIN`: `[YOUR_DOMAIN].auth0.com`
