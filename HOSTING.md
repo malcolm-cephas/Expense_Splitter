@@ -4,19 +4,23 @@ This guide provides a zero-cost, "Free for Life" strategy to deploy your **Colla
 
 ---
 
-## 🏗️ Step 1: Secure Your Free Cloud Database (MongoDB Atlas)
+## 🏗️ Step 1: Secure Your Free Cloud Database (Supabase)
 
-1. **Sign Up**: Create an account at [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas).
-2. **Build Cluster**: Select the **M0 (FREE)** shared tier.
-3. **Database Access**: Create a user with a `username` and `password`.
-4. **Network Access**: Add `0.0.0.0/0` (Allow Access from Anywhere) temporarily to the IP Access List.
-5. **Get URI**: Copy the "Connect with Drivers" connection string.
+Supabase offers a free, high-performance PostgreSQL database that never expires.
+
+1. **Sign Up**: Create an account at [supabase.com](https://supabase.com).
+2. **New Project**: Create a new project (e.g., "ExpenseSplitter").
+3. **Get JDBC URL**:
+   - Go to **Project Settings** > **Database**.
+   - Copy the **Connection String** for JDBC. It will look like: 
+     `jdbc:postgresql://db.[id].supabase.co:5432/postgres`
+4. **Database Password**: Make sure you remember the password you set during project creation.
 
 ## 🔐 Step 2: Configure Your Free Identity (Auth0)
 
 1. **New SPA Application**: Create a "Single Page App" in [Auth0 Dashboard](https://manage.auth0.com/).
-   - **Callback URLs**: `http://localhost:5173, https://your-app-url.onrender.com`
-   - **Logout URLs**: `http://localhost:5173, https://your-app-url.onrender.com`
+   - **Allowed Callback URLs**: `http://localhost:5173, https://your-app-url.onrender.com`
+   - **Allowed Logout URLs**: `http://localhost:5173, https://your-app-url.onrender.com`
 2. **New API**: Create an API with identifier `https://expensesplitter.api`.
 3. **Copy Keys**: Copy your `Domain`, `Client ID`, and `Audience`.
 
@@ -24,34 +28,37 @@ This guide provides a zero-cost, "Free for Life" strategy to deploy your **Colla
 
 Render will build and run your entire project automatically using the provided `Dockerfile`.
 
-1. **GitHub Setup**: Ensure your project is in a Private GitHub repo.
-2. **New Web Service**: Connect your GitHub repo to a new Render "Web Service."
-3. **Configuration**:
+1. **New Web Service**: Connect your GitHub repo to a new Render "Web Service."
+2. **Configuration**:
    - **Instance Type**: `Free ($0/month)`.
    - **Runtime**: `Docker`.
-4. **Secret Management**: Add these Environment Variables:
-   - `SPRING_DATASOURCE_URL`: (Your MongoDB Atlas URI)
-   - `AUTH0_ISSUER_URI`: (Your Auth0 Domain URL)
-   - `VITE_AUTH0_DOMAIN`: (Your Auth0 Domain)
-   - `VITE_AUTH0_CLIENT_ID`: (Your Auth0 Client ID)
+3. **Environment Variables**: Add these in the "Environment" tab:
+   - `SPRING_DATASOURCE_URL`: (Your Supabase JDBC URI)
+   - `SPRING_DATASOURCE_USERNAME`: `postgres`
+   - `SPRING_DATASOURCE_PASSWORD`: (Your Supabase Password)
+   - `SPRING_JPA_DIALECT`: `org.hibernate.dialect.PostgreSQLDialect`
+   - `AUTH0_ISSUER_URI`: `https://[YOUR_DOMAIN].auth0.com/` 
+   - `AUTH0_AUDIENCE`: `https://expensesplitter.api`
+   - `VITE_AUTH0_DOMAIN`: `[YOUR_DOMAIN].auth0.com`
+   - `VITE_AUTH0_CLIENT_ID`: `[YOUR_CLIENT_ID]`
    - `VITE_API_BASE_URL`: `https://your-app-name.onrender.com`
 
 ---
 
 ## 🌩️ Why Use Render + Docker?
 
-- **Zero Configuration**: The `Dockerfile` handles installing Node.js, building the React app, and packaging the Java backend into a single container.
-- **Portability**: If you decide to leave Render, your Docker container will work instantly on **AWS**, **Google Cloud**, or **Azure**.
-- **Performance**: While the free tier might sleep after 15 minutes of inactivity, it provides a full world-class environment when active.
+- **Zero Configuration**: The `Dockerfile` handles everything (Java, Node, Build).
+- **Portability**: Your app works anywhere Docker is supported.
+- **Performance**: High reliability and professional grade infrastructure.
 
 ---
 
 ## 💡 Troubleshooting
 
-- **Spinner on Login**: Ensure your "Allowed Callback URLs" in Auth0 *exactly* match your live URL.
-- **Spin-up Speed**: Render's free tier takes ~30-60 seconds to "wake up" the first time you visit.
-- **Persistency**: If not using MongoDB, Render's disk is ephemeral. **Using MongoDB Atlas is strongly recommended for persistence.**
+- **Spinner on Login**: Check "Allowed Callback URLs" in Auth0.
+- **Spin-up Speed**: Render's free tier takes ~30s to "wake up" after inactivity.
+- **Port Error**: Render automatically detects Port 8080. If it fails, ensure `PORT=8080` is set in environment.
 
 ---
 
-**Now, push your code to GitHub and launch your platform!** 🛡️✨
+**Now, push these changes to GitHub and proceed to Render.com!** 🛡️✨
