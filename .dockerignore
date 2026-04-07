@@ -1,0 +1,24 @@
+# Frontend ignore
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# Backend ignore
+expense-splitter/target
+expense-splitter/.mvn
+expense-splitter/data
+expense-splitter/*.log
+
+# Global ignore
+.git
+.gitignore
+.vscode
+.idea
+Dockerfile
+.dockerignore
+mvnw
+mvnw.cmd
+pom.xml.releaseBackup
+pom.xml.tag
+pom.xml.next
+pom.xml.versionsBackup

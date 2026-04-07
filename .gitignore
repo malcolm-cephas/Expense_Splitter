@@ -1,0 +1,36 @@
+# Java Backend
+**/target/
+**/*.class
+**/*.jar
+**/*.war
+**/*.ear
+**/*.log
+.mvn/
+mvnw
+mvnw.cmd
+**/data/
+**/exchange_rates.json
+**/currency_names.json
+
+# Node/React Frontend
+**/node_modules/
+**/dist/
+**/.vite/
+**/*.local
+**/package-lock.json
+
+# Secrets & OS
+.env
+.env.local
+.DS_Store
+Thumbs.db
+
+# Project Config
+.vscode/
+.idea/
+*.iml
+.DS_Store
+[Bb]in/
+[Oo]bj/
+[Tt]arget/
+[Tt]mp/
