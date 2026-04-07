@@ -1,10 +1,35 @@
 import { useAuth0 } from "@auth0/auth0-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Wallet, Users, Receipt, PieChart, LogIn, LogOut, Plus, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import "./App.css";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+
 function App() {
-  const { loginWithRedirect, logout, isAuthenticated, user, isLoading } = useAuth0();
+  const { loginWithRedirect, logout, isAuthenticated, user, isLoading, getAccessTokenSilently } = useAuth0();
+  const [groups, setGroups] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+
+  useEffect(() => {
+    const fetchGroups = async () => {
+      if (!isAuthenticated) return;
+      try {
+        setLoadingData(true);
+        const token = await getAccessTokenSilently();
+        const response = await axios.get(`${API_BASE}/groups`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setGroups(response.data);
+      } catch (e) {
+        console.error("Error fetching groups:", e);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    fetchGroups();
+  }, [isAuthenticated, getAccessTokenSilently]);
 
   if (isLoading) {
     return (
@@ -100,24 +125,24 @@ function App() {
                   </button>
                 </div>
                 <div className="groups-list">
-                  {[
-                    { id: 1, name: "Euro Trip 2024", members: 4, balance: -450 },
-                    { id: 2, name: "Flat Mates", members: 3, balance: 1200 },
-                    { id: 3, name: "Office Lunch", members: 12, balance: 0 },
-                  ].map((group) => (
+                  {loadingData ? (
+                     <div className="loading-spinner" style={{ margin: '20px auto' }} />
+                  ) : groups.length === 0 ? (
+                     <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px" }}>
+                       You don't have any groups yet. Click the + button to create one!
+                     </p>
+                  ) : groups.map((group) => (
                     <motion.div 
                       key={group.id} 
                       whileHover={{ scale: 1.02 }}
                       className="group-card glass-panel"
+                      onClick={() => alert(`Clicked on ${group.name}! Full feature opening soon.`)}
                     >
                       <div className="group-info">
                         <h3>{group.name}</h3>
-                        <p>{group.members} collaborators</p>
+                        <p>{group.members?.length || 1} collaborators</p>
                       </div>
                       <div className="group-action">
-                        <span className={`balance ${group.balance < 0 ? 'negative' : 'positive'}`}>
-                          {group.balance < 0 ? `- ₹${Math.abs(group.balance)}` : `+ ₹${group.balance}`}
-                        </span>
                         <ChevronRight size={20} />
                       </div>
                     </motion.div>
