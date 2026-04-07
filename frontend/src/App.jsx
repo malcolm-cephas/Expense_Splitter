@@ -1,12 +1,14 @@
-import { useAuth0 } from "@auth0/auth0-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import "./App.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 function App() {
   const { loginWithRedirect, logout, isAuthenticated, getAccessTokenSilently, user } = useAuth0();
+  const fileInputRef = useRef(null);
   const [groups, setGroups] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -206,6 +208,67 @@ function App() {
     window.URL.revokeObjectURL(url);
   };
 
+  const handleExportPDF = () => {
+    if (!selectedGroup) return;
+    const doc = new jsPDF();
+    doc.text(`Expense Report: ${selectedGroup.name}`, 14, 15);
+    doc.text(`Budget: ${selectedGroup.budgetCurrency || 'INR'} ${selectedGroup.budget || 0}`, 14, 25);
+    
+    const tableData = (selectedGroup.expenses || []).map(e => [
+      e.expenseDate || '',
+      e.description,
+      e.category || 'Other',
+      `${selectedGroup.budgetCurrency || 'INR'} ${e.amount}`
+    ]);
+
+    doc.autoTable({
+      startY: 35,
+      head: [['Date', 'Description', 'Category', 'Amount']],
+      body: tableData,
+    });
+
+    doc.save(`Group_${selectedGroup.name}_Report.pdf`);
+  };
+
+  const handleExportJSON = () => {
+    if (!selectedGroup) return;
+    const dataStr = JSON.stringify(selectedGroup, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Backup_${selectedGroup.name}.json`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleImportJSON = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        if (!importedData.name) throw new Error("Invalid format");
+        
+        const token = await getAccessTokenSilently();
+        // Since the ID from backup might conflict or be irrelevant, 
+        // we'll treat it as a new group creation
+        const { id, expenses, members, createdBy, ...rest } = importedData;
+        const response = await axios.post(`${API_BASE}/groups`, rest, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        setGroups([...groups, response.data]);
+        alert("Backup imported successfully as a new group!");
+      } catch (err) {
+        console.error(err);
+        alert("Failed to import JSON. Ensure it is a valid backup file.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="app-border-pane">
       {/* Top Header */}
@@ -264,7 +327,8 @@ function App() {
           </div>
 
           <h4>Tools</h4>
-          <button className="fx-button" onClick={() => alert('Import requires an SQLite adapter. This feature is currently disabled for cloud safety.')}>📂 Import Group Backup</button>
+          <input type="file" ref={fileInputRef} onChange={handleImportJSON} style={{ display: 'none' }} accept=".json" />
+          <button className="fx-button" onClick={() => fileInputRef.current.click()}>📂 Import JSON Backup</button>
         </div>
 
         {/* Center Main Content Area */}
@@ -280,7 +344,11 @@ function App() {
                   <button className="fx-button accent" style={{ width: 'auto' }} onClick={() => setActiveModal('ADD_MEMBER')}>Add Member</button>
                   <button className="fx-button accent" style={{ width: 'auto' }} onClick={() => setActiveModal('ADD_EXPENSE')}>Add Expense</button>
                   <button className="fx-button" style={{ width: 'auto', backgroundColor: '#e2f0d9', borderColor: '#7fbf7f', color: '#333' }} onClick={loadSettlementGraph}>Settle Up</button>
-                  <button className="fx-button" style={{ width: 'auto' }} onClick={handleExportCSV}>Export CSV</button>
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <button className="fx-button" style={{ width: 'auto', padding: '6px' }} onClick={handleExportCSV}>CSV</button>
+                    <button className="fx-button" style={{ width: 'auto', padding: '6px' }} onClick={handleExportPDF}>PDF</button>
+                    <button className="fx-button" style={{ width: 'auto', padding: '6px' }} onClick={handleExportJSON}>JSON</button>
+                  </div>
                   <button className="fx-button" style={{ width: 'auto' }} onClick={() => setActiveModal('STATS')}>Stats</button>
                 </div>
               </div>
