@@ -56,7 +56,7 @@ Render will build and run your entire project automatically using the provided `
 
 - **Spinner on Login**: Check "Allowed Callback URLs" in Auth0.
 - **Spin-up Speed**: Render's free tier takes ~30s to "wake up" after inactivity.
-- **Port Error**: Render automatically detects Port 8080. If it fails, ensure `PORT=8080` is set in environment.
+- **"Network Unreachable" DB Error**: Supabase Free tier databases use IPv6. If Render fails to connect, you MUST use the **Connection Pooler** URL from Supabase. Go to Supabase > Database > Connection String, check **"Use connection pooling"**, and use the new URL (usually on port `6543`, starting with a domain like `aws-0...pooler.supabase.com`). Don't forget to append `?sslmode=require`.
 
 ---
 
