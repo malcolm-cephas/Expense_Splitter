@@ -168,4 +168,20 @@ public class GroupRestController {
         group.getMembers().add(toAdd);
         return ResponseEntity.ok(groupRepository.save(group));
     }
+
+    @DeleteMapping("/{id}/members/{memberId}")
+    public ResponseEntity<Group> removeMember(
+             @PathVariable UUID id,
+             @PathVariable UUID memberId,
+             @AuthenticationPrincipal Jwt jwt) {
+         User requester = userService.getOrCreateUserFromJwt(jwt);
+         Group group = groupRepository.findById(id).orElseThrow();
+         
+         if (!group.getCreatedBy().equals(requester)) {
+              return ResponseEntity.status(403).build(); // Only creator can remove in this basic demo
+         }
+         
+         group.getMembers().removeIf(m -> m.getId().equals(memberId));
+         return ResponseEntity.ok(groupRepository.save(group));
+    }
 }

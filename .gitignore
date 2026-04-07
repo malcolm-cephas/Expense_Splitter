@@ -21,6 +21,7 @@ mvnw.cmd
 
 # Secrets & OS
 .env
+.env.example
 .env.local
 .DS_Store
 Thumbs.db

@@ -141,4 +141,33 @@ public class ExpenseRestController {
 
         return ResponseEntity.ok(expense);
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateExpense(
+            @PathVariable UUID id,
+            @RequestParam BigDecimal amount,
+            @RequestParam String description,
+            @AuthenticationPrincipal Jwt jwt) {
+        User user = userService.getOrCreateUserFromJwt(jwt);
+        Expense expense = expenseRepository.findById(id).orElseThrow();
+        if (!expense.getGroup().getMembers().contains(user)) {
+             return ResponseEntity.status(403).build();
+        }
+        expense.setAmount(amount);
+        expense.setDescription(description);
+        return ResponseEntity.ok(expenseRepository.save(expense));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteExpense(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        User user = userService.getOrCreateUserFromJwt(jwt);
+        Expense expense = expenseRepository.findById(id).orElseThrow();
+        if (!expense.getGroup().getMembers().contains(user)) {
+             return ResponseEntity.status(403).build();
+        }
+        Group group = expense.getGroup();
+        group.removeExpense(expense);
+        expenseRepository.delete(expense);
+        return ResponseEntity.ok().build();
+    }
 }
