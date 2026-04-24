@@ -1,0 +1,1 @@
+{"version":3,"file":"settlementService.d.ts","sourceRoot":"","sources":["settlementService.ts"],"names":[],"mappings":"AAEA,UAAU,WAAW;IACnB,MAAM,EAAE,MAAM,CAAC;IACf,IAAI,EAAE,MAAM,CAAC;IACb,IAAI,EAAE,MAAM,CAAC;IACb,EAAE,EAAE,MAAM,CAAC;IACX,MAAM,EAAE,MAAM,CAAC;CAChB;AAQD,eAAO,MAAM,wBAAwB,GAAU,SAAS,MAAM,KAAG,OAAO,CAAC,WAAW,EAAE,CAmErF,CAAC"}

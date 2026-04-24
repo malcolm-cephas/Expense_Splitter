@@ -1,0 +1,92 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id             String           @id @default(uuid())
+  email          String           @unique
+  name           String
+  familyName     String?
+  groups         Group[]          @relation("GroupMembers")
+  createdGroups  Group[]          @relation("GroupCreator")
+  expensePayments ExpensePayment[]
+  expenseSplits  ExpenseSplit[]
+  legacyPaidBy   Expense[]        @relation("LegacyPaidBy")
+}
+
+model Group {
+  id                    String    @id @default(uuid())
+  name                  String
+  description           String?
+  budget                Float     @default(0)
+  budgetCurrency        String    @default("INR")
+  familyGroupingEnabled Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+  
+  createdBy             User      @relation("GroupCreator", fields: [createdById], references: [id])
+  createdById           String
+  
+  members               User[]    @relation("GroupMembers")
+  expenses              Expense[]
+}
+
+model Expense {
+  id             String           @id @default(uuid())
+  description    String
+  amount         Float
+  currency       String?
+  category       String?
+  paymentMode    String?
+  splitType      SplitType        @default(EQUAL)
+  receiptPath    String?
+  expenseDate    DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  
+  group          Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId        String
+  
+  legacyPaidBy   User?            @relation("LegacyPaidBy", fields: [legacyPaidById], references: [id])
+  legacyPaidById String?
+  
+  payments       ExpensePayment[]
+  splits         ExpenseSplit[]
+}
+
+model ExpensePayment {
+  id        String   @id @default(uuid())
+  amount    Float
+  
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expenseId String
+  
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+}
+
+model ExpenseSplit {
+  id          String   @id @default(uuid())
+  owedAmount  Float
+  paidAmount  Float    @default(0)
+  isPaid      Boolean  @default(false)
+  
+  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expenseId   String
+  
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+}
+
+enum SplitType {
+  EQUAL
+  EXACT
+  PERCENTAGE
+  SHARES
+  ADJUSTMENT
+}

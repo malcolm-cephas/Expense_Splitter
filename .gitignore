@@ -1,37 +1,29 @@
-# Java Backend
-**/target/
-**/*.class
-**/*.jar
-**/*.war
-**/*.ear
-**/*.log
-.mvn/
-mvnw
-mvnw.cmd
-**/data/
-**/exchange_rates.json
-**/currency_names.json
-
-# Node/React Frontend
+# Dependencies
 **/node_modules/
+
+# Build outputs
 **/dist/
 **/.vite/
-**/*.local
-**/package-lock.json
 
-# Secrets & OS
+# Database
+**/dev.db
+**/dev.db-journal
+
+# Secrets
 .env
-.env.example
 .env.local
+**/.env
+
+# OS files
 .DS_Store
 Thumbs.db
 
-# Project Config
+# IDEs
 .vscode/
 .idea/
 *.iml
-.DS_Store
-[Bb]in/
-[Oo]bj/
-[Tt]arget/
-[Tt]mp/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
