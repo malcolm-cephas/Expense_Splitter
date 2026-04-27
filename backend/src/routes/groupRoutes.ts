@@ -9,7 +9,7 @@ router.get('/', async (req: any, res) => {
   
   const groups = await prisma.group.findMany({
     where: {
-      members: {
+      membersList: {
         some: {
           user: {
             auth0Id: auth0Id
@@ -18,7 +18,7 @@ router.get('/', async (req: any, res) => {
       }
     },
     include: {
-      members: {
+      membersList: {
         include: { user: true }
       },
       expenses: {
@@ -56,14 +56,14 @@ router.post('/', async (req: any, res) => {
       budget: parseFloat(budget || 0),
       budgetCurrency: budgetCurrency || 'INR',
       createdById: user.id,
-      members: {
+      membersList: {
         create: { 
           user: { connect: { id: user.id } }
         }
       }
     },
     include: {
-      members: {
+      membersList: {
         include: { user: true }
       }
     }
@@ -78,7 +78,7 @@ router.get('/:id', async (req: any, res) => {
   const group = await prisma.group.findUnique({
     where: { id },
     include: {
-      members: {
+      membersList: {
         include: { user: true }
       },
       expenses: {
@@ -118,14 +118,14 @@ router.post('/:id/members', async (req: any, res) => {
   const group = await prisma.group.update({
     where: { id },
     data: {
-      members: {
+      membersList: {
         create: { 
           user: { connect: { id: user.id } }
         }
       }
     },
     include: {
-      members: {
+      membersList: {
         include: { user: true }
       }
     }
@@ -160,7 +160,7 @@ router.patch('/:id/family-grouping', async (req: any, res) => {
       familyGroupingEnabled: !group.familyGroupingEnabled
     },
     include: {
-      members: {
+      membersList: {
         include: { user: true }
       }
     }
@@ -295,7 +295,7 @@ router.post('/import', async (req: any, res) => {
     const finalGroup = await prisma.group.findUnique({
       where: { id: group.id },
       include: {
-        members: { include: { user: true } },
+        membersList: { include: { user: true } },
         expenses: { include: { payments: true, splits: true } }
       }
     });

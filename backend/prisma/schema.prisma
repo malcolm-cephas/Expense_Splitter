@@ -39,7 +39,7 @@ model Group {
   createdBy             User?     @relation("GroupCreator", fields: [createdById], references: [id])
   createdById           String?   @map("created_by_id") @db.Uuid
   
-  members               GroupMember[]
+  membersList           GroupMember[]
   expenses              Expense[]
   settlements           Settlement[]
 

@@ -18,7 +18,9 @@ export const calculateSimplifiedDebts = async (groupId: string): Promise<Transac
   const group = await prisma.group.findUnique({
     where: { id: groupId },
     include: {
-      members: true,
+      membersList: {
+        include: { user: true }
+      },
       expenses: {
         include: {
           payments: true,
@@ -31,10 +33,13 @@ export const calculateSimplifiedDebts = async (groupId: string): Promise<Transac
   if (!group) throw new Error('Group not found');
 
   const balances: Record<string, number> = {};
+  
+  // Extract real users from the links
+  const users = group.membersList.map(ul => ul.user);
 
   // Initialize balances for all members
-  group.members.forEach((m: any) => {
-    balances[m.id] = 0;
+  users.forEach((u: any) => {
+    balances[u.id] = 0;
   });
 
   for (const expense of group.expenses) {
@@ -44,7 +49,7 @@ export const calculateSimplifiedDebts = async (groupId: string): Promise<Transac
     // Calculate total unpaid in expense
     let totalUnpaidInExpense = 0;
     for (const split of expense.splits) {
-      const unpaid = split.owedAmount - split.paidAmount;
+      const unpaid = split.owedAmount - (split.paidAmount || 0);
       if (unpaid > 0) {
         totalUnpaidInExpense += unpaid;
       }
@@ -63,7 +68,7 @@ export const calculateSimplifiedDebts = async (groupId: string): Promise<Transac
     // Debit members for their own remaining unpaid debt
     for (const split of expense.splits) {
       const debtorId = split.userId;
-      const unpaid = split.owedAmount - split.paidAmount;
+      const unpaid = split.owedAmount - (split.paidAmount || 0);
 
       if (unpaid > 0) {
         balances[debtorId] = (balances[debtorId] || 0) - unpaid;
@@ -73,25 +78,26 @@ export const calculateSimplifiedDebts = async (groupId: string): Promise<Transac
 
   if (group.familyGroupingEnabled) {
     const familyBalances: Record<string, number> = {};
-    group.members.forEach((member: any) => {
-      const familyKey = member.familyName?.trim() || member.name;
-      familyBalances[familyKey] = (familyBalances[familyKey] || 0) + (balances[member.id] || 0);
+    users.forEach((user: any) => {
+      const familyKey = user.familyName?.trim() || user.name;
+      familyBalances[familyKey] = (familyBalances[familyKey] || 0) + (balances[user.id] || 0);
     });
-    return runSimplificationAlgorithm(familyBalances, group.members);
+    return runSimplificationAlgorithm(familyBalances, users);
   }
 
-  return runSimplificationAlgorithm(balances, group.members);
+  return runSimplificationAlgorithm(balances, users);
 };
 
 const runSimplificationAlgorithm = (
   balances: Record<string, number>,
-  members: any[]
+  users: any[]
 ): Transaction[] => {
   const creditors: BalanceNode[] = [];
   const debtors: BalanceNode[] = [];
 
   Object.entries(balances).forEach(([idOrName, amount]) => {
-    const name = members.find((m: any) => m.id === idOrName)?.name || idOrName;
+    const user = users.find((u: any) => u.id === idOrName);
+    const name = user?.name || idOrName;
     if (amount > 0.001) {
       creditors.push({ id: idOrName, name, amount });
     } else if (amount < -0.001) {
