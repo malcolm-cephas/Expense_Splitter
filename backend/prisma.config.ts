@@ -10,5 +10,7 @@ export default defineConfig({
   },
   datasource: {
     url: process.env["DATABASE_URL"]!,
-  },
+    // @ts-ignore - directUrl is supported at runtime but may be missing in some type versions
+    directUrl: process.env["DIRECT_URL"],
+  } as any,
 });

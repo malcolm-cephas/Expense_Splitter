@@ -22,13 +22,13 @@ const checkJwt = auth({
 // Helper to get or create user from Auth0 sub
 const getCurrentUser = async (auth0Id: string, email: string, name: string) => {
   let user = await prisma.user.findUnique({
-    where: { email }
+    where: { auth0Id }
   });
   
   if (!user) {
     user = await prisma.user.create({
       data: {
-        id: auth0Id, // Use Auth0 sub as ID or a new UUID
+        auth0Id,
         email,
         name
       }

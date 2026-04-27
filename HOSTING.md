@@ -1,89 +1,121 @@
-# 🚀 Hosting Your Full-Stack TypeScript Platform
+# 🚀 Hosting Your Full-Stack Platform
 
-This guide provides a strategy to deploy your **TypeScript Expense Splitter Pro** using modern cloud platforms.
-
----
-
-## 🏗️ Step 1: Secure a Cloud Database (Supabase/Neon)
-
-Since Vercel and other serverless platforms have read-only filesystems, you must move from local SQLite to a managed PostgreSQL database.
-
-1.  **Sign Up**: Create an account at [Supabase](https://supabase.com) or [Neon.tech](https://neon.tech).
-2.  **Connection String**: Copy your PostgreSQL connection string. It should look like:
-    `postgresql://postgres:[PASSWORD]@db.[ID].supabase.co:5432/postgres`
-3.  **Update Prisma**: In `backend/prisma/schema.prisma`, change the provider:
-    ```prisma
-    datasource db {
-      provider = "postgresql"
-      url      = env("DATABASE_URL")
-    }
-    ```
-4.  **Migrate**: Run `npx prisma migrate deploy` in your production environment.
+This guide walks you through deploying the **Expense Splitter Pro** to a production-ready environment using **Vercel** and **Neon/Supabase**.
 
 ---
 
-## 🔐 Step 2: Configure Auth0
+## 🏗️ Deployment Architecture
 
-1.  **Application (Frontend)**: Ensure "Allowed Callback URLs" include your production domain.
-2.  **API (Backend)**:
-    *   Identifier: `https://expensesplitter.api` (or your chosen identifier).
-    *   Ensure the `AUTH0_AUDIENCE` and `AUTH0_ISSUER_BASE_URL` env vars are set in your backend hosting.
-
----
-
-## ⛵ Step 3: Deployment Options
-
-### Option A: Vercel (Free Monorepo Setup)
-
-You can host both your Frontend and Backend on Vercel's free tier as a single project.
-
-1.  **Project Structure**: The root `vercel.json` I created handles the routing:
-    *   `/api/*` requests are sent to the Node.js backend.
-    *   All other requests serve the React frontend.
-2.  **Deployment Steps**:
-    *   Push your code to GitHub.
-    *   In Vercel, click **"New Project"** and import your repo.
-    *   Vercel will detect the `vercel.json` and configure the build.
-3.  **Database (Required)**: 
-    *   Vercel does not support SQLite. You **must** use a free PostgreSQL database like **Supabase**.
-    *   Add your `DATABASE_URL` to Vercel's **Environment Variables**.
-4.  **Auth0**:
-    *   Add `AUTH0_AUDIENCE`, `AUTH0_ISSUER_BASE_URL`, and the `VITE_` variables to Vercel's **Environment Variables**.
-5.  **Build Command**: Vercel handles this via the `vercel.json` configuration, but ensure your `frontend` has a `build` script and your `backend` is ready for Node.js execution.
+```mermaid
+graph TD
+    User((User)) -->|HTTPS| Vercel[Vercel Edge Network]
+    subgraph Vercel_Cloud [Vercel Project]
+        Vercel -->|Serves| Frontend[React / Vite SPA]
+        Vercel -->|Proxies /api/*| Backend[Node.js Serverless Functions]
+    end
+    Backend -->|Prisma Client| DB[(PostgreSQL Database)]
+    Frontend -->|OAuth 2.0| Auth0[Auth0 Identity Provider]
+    Backend -->|JWT Validation| Auth0
+```
 
 ---
 
-### Option B: Railway / Render (Recommended for Express)
+## 🏁 Phase 1: Provision a Cloud Database
 
-Best for persistent, always-on backends.
+Vercel's filesystem is ephemeral and read-only. You must move from **SQLite** to a managed **PostgreSQL** instance.
 
-1.  **New Service**: Connect your GitHub repo.
-2.  **Root Directory**: Set to `backend`.
-3.  **Build Command**: `npm install && npm run build`
-4.  **Start Command**: `npm start`
-5.  **Env Vars**: Add `DATABASE_URL`, `AUTH0_AUDIENCE`, `AUTH0_ISSUER_BASE_URL`, etc.
+### 1. Create a Database
+*   **Neon (Recommended):** [neon.tech](https://neon.tech) - Best for serverless projects with "Scale to Zero" free tier.
+*   **Supabase:** [supabase.com](https://supabase.com) - Excellent all-in-one platform.
 
----
+### 2. Update Your Schema
+Change the datasource provider in `backend/prisma/schema.prisma`:
 
-## 🍱 Environment Variables Checklist
+```prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+```
 
-| Variable | Source | Used In |
-| :--- | :--- | :--- |
-| `DATABASE_URL` | Supabase/Neon | Backend |
-| `AUTH0_AUDIENCE` | Auth0 API | Backend |
-| `AUTH0_ISSUER_BASE_URL` | Auth0 Domain | Backend |
-| `VITE_AUTH0_DOMAIN` | Auth0 App | Frontend |
-| `VITE_AUTH0_CLIENT_ID` | Auth0 App | Frontend |
-| `VITE_API_BASE_URL` | Your Backend URL | Frontend |
-
----
-
-## 💡 Troubleshooting
-
-*   **Prisma Client Error**: Ensure `npx prisma generate` runs during your build step.
-*   **CORS Issues**: Add your production frontend URL to the `cors()` middleware in `backend/src/index.ts`.
-*   **Cold Starts**: Free tiers on Render/Railway may take ~30s to wake up.
+### 3. Run Initial Migration
+```powershell
+cd backend
+# Create a new migration for Postgres
+npx prisma migrate dev --name init_postgres
+```
 
 ---
 
-**Now, push your changes and go live!** 🛡️✨
+## 🔐 Phase 2: Auth0 Production Setup
+
+1.  **Dashboard**: Go to your Auth0 Dashboard.
+2.  **Allowed Origins**: Add your Vercel production URL (e.g., `https://expense-splitter.vercel.app`) to:
+    *   *Allowed Callback URLs*
+    *   *Allowed Logout URLs*
+    *   *Allowed Web Origins*
+3.  **API Identifier**: Ensure your API Identifier matches `AUTH0_AUDIENCE` in your env vars.
+
+---
+
+## ⛵ Phase 3: Deploy to Vercel (Monorepo)
+
+The project is already configured with a `vercel.json` in the root to handle the monorepo routing.
+
+### 1. Connect to GitHub
+Push your latest changes to a GitHub repository.
+
+### 2. Import Project
+1.  Go to [Vercel Dashboard](https://vercel.com/new).
+2.  Import your repository.
+3.  **Framework Preset**: Select `Vite` (Vercel should detect this automatically).
+4.  **Root Directory**: Keep as `./` (the project root).
+
+### 3. Configure Environment Variables
+Add the following variables in the Vercel Project Settings:
+
+| Variable | Value Example |
+| :--- | :--- |
+| `DATABASE_URL` | `postgresql://user:pass@ep-cool-name.neon.tech/neondb` |
+| `AUTH0_ISSUER_BASE_URL` | `https://your-domain.auth0.com/` |
+| `AUTH0_AUDIENCE` | `https://expensesplitter.api` |
+| `VITE_AUTH0_DOMAIN` | `your-domain.auth0.com` |
+| `VITE_AUTH0_CLIENT_ID` | `YOUR_CLIENT_ID` |
+| `VITE_AUTH0_AUDIENCE` | `https://expensesplitter.api` |
+| `VITE_API_BASE_URL` | `/api` (This uses the Vercel proxy) |
+
+### 4. Deploy!
+Click **Deploy**. Vercel will build the frontend and backend simultaneously.
+
+---
+
+## 🛠️ Phase 4: Post-Deployment Checklist
+
+### ✅ Database Migrations
+Vercel won't automatically run migrations on every deploy unless configured in `package.json`. You can run them manually once:
+```powershell
+# From your local machine, pointing to the PROD DATABASE_URL
+npx prisma migrate deploy
+```
+
+### ✅ CORS Configuration
+In `backend/src/index.ts`, ensure your CORS allows your production domain:
+```typescript
+app.use(cors({
+  origin: ['https://your-app.vercel.app', 'http://localhost:5173']
+}));
+```
+
+### ✅ Health Check
+Visit `https://your-app.vercel.app/api/health` to verify the backend is responsive.
+
+---
+
+> [!TIP]
+> **Performance Optimization**: Use **Neon's Connection Pooling** (port 6543) if you experience connection limits with serverless functions.
+
+> [!IMPORTANT]
+> **Security**: Never commit your `.env` file to GitHub. Always use Vercel's Environment Variables dashboard for secrets.
+
+---
+*Created with ✨ Antigravity*

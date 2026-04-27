@@ -11,12 +11,16 @@ router.get('/', async (req: any, res) => {
     where: {
       members: {
         some: {
-          id: auth0Id
+          user: {
+            auth0Id: auth0Id
+          }
         }
       }
     },
     include: {
-      members: true,
+      members: {
+        include: { user: true }
+      },
       expenses: {
         include: {
           payments: true,
@@ -35,13 +39,12 @@ router.post('/', async (req: any, res) => {
   const auth0Id = req.auth.payload.sub!;
   
   // Ensure user exists
-  let user = await prisma.user.findUnique({ where: { id: auth0Id } });
+  let user = await prisma.user.findUnique({ where: { auth0Id } });
   if (!user) {
     // If user doesn't exist, create with placeholder name/email
-    // In real app, sync this from Auth0
     user = await prisma.user.create({
       data: {
-        id: auth0Id,
+        auth0Id,
         email: `${auth0Id}@placeholder.com`,
         name: req.auth.payload.name || 'Unknown User'
       }
@@ -53,13 +56,15 @@ router.post('/', async (req: any, res) => {
       name,
       budget: parseFloat(budget || 0),
       budgetCurrency: budgetCurrency || 'INR',
-      createdById: auth0Id,
+      createdById: user.id,
       members: {
-        connect: { id: auth0Id }
+        create: { userId: user.id }
       }
     },
     include: {
-      members: true
+      members: {
+        include: { user: true }
+      }
     }
   });
   
@@ -112,11 +117,13 @@ router.post('/:id/members', async (req: any, res) => {
     where: { id },
     data: {
       members: {
-        connect: { id: user.id }
+        create: { userId: user.id }
       }
     },
     include: {
-      members: true
+      members: {
+        include: { user: true }
+      }
     }
   });
   
