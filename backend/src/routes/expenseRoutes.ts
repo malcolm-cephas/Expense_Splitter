@@ -1,49 +1,59 @@
 import { Router } from 'express';
 import prisma from '../db.js';
-import { SplitType } from '@prisma/client/index.js';
 
 const router = Router();
 
 // Create Expense
 router.post('/', async (req: any, res) => {
-  const { groupId, paidById, amount, description, category, expenseDate, splitType, splitMemberIds } = req.query;
-  
-  if (!groupId || !paidById || !amount || !description) {
-    return res.status(400).json({ error: 'Missing required parameters' });
-  }
-
-  const amt = parseFloat(amount as string);
-  const memberIds = (splitMemberIds as string).split(',');
-  
-  // Simple equal split logic for now
-  const splitAmount = amt / memberIds.length;
-
-  const expense = await prisma.expense.create({
-    data: {
-      groupId: groupId as string,
-      amount: amt,
-      description: description as string,
-      category: (category as string) || 'Other',
-      expenseDate: new Date(expenseDate as string),
-      splitType: (splitType as SplitType) || 'EQUAL',
-      payments: {
-        create: {
-          userId: paidById as string,
-          amount: amt
-        }
-      },
-      splits: {
-        create: memberIds.map(id => ({
-          userId: id,
-          owedAmount: splitAmount,
-          paidAmount: 0,
-          isPaid: false
-        }))
-      }
+  try {
+    const { groupId, paidById, amount, description, category, expenseDate, splitType, splitMemberIds } = { ...req.query, ...req.body };
+    
+    if (!groupId || !paidById || !amount || !description) {
+      return res.status(400).json({ error: 'Missing required parameters' });
     }
-  });
 
-  res.json(expense);
+    const amt = parseFloat(amount as string);
+    const memberIds = typeof splitMemberIds === 'string' ? splitMemberIds.split(',') : (Array.isArray(splitMemberIds) ? splitMemberIds : []);
+    
+    if (memberIds.length === 0) {
+      return res.status(400).json({ error: 'At least one member must be involved in the split' });
+    }
+
+    // Simple equal split logic for now
+    const splitAmount = amt / memberIds.length;
+
+    const expense = await prisma.expense.create({
+      data: {
+        groupId: groupId as string,
+        amount: amt,
+        description: description as string,
+        category: (category as string) || 'Other',
+        expenseDate: expenseDate ? new Date(expenseDate as string) : new Date(),
+        createdAt: new Date(),
+        splitType: (splitType as string) || 'EQUAL',
+        paidById: paidById as string,
+        payments: {
+          create: {
+            userId: paidById as string,
+            amount: amt
+          }
+        },
+        splits: {
+          create: memberIds.map((id: string) => ({
+            userId: id,
+            owedAmount: splitAmount,
+            paidAmount: 0,
+            isPaid: false
+          }))
+        }
+      }
+    });
+
+    res.json(expense);
+  } catch (error) {
+    console.error('Error creating expense:', error);
+    res.status(500).json({ error: 'Internal server error', details: (error as Error).message });
+  }
 });
 
 // Delete Expense

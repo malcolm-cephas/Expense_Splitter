@@ -28,3 +28,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 Upload.env
+
+# Agent Skills
+**/.agents/
+**/.claude/
+**/.continue/
+**/.windsurf/
+**/skills-lock.json

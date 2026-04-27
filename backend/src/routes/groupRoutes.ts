@@ -3,73 +3,104 @@ import prisma from '../db.js';
 
 const router = Router();
 
+// Helper to transform Prisma Group to Frontend Group
+const formatGroup = (g: any) => ({
+  ...g,
+  members: (g.membersList || []).map((m: any) => m.user),
+  expenses: (g.expenses || []).map((e: any) => ({
+    ...e,
+    paidBy: e.payments?.[0]?.user,
+    splitMembers: (e.splits || []).map((s: any) => s.user)
+  }))
+});
+
 // Get all groups for user
 router.get('/', async (req: any, res) => {
-  const auth0Id = req.auth.payload.sub!;
-  
-  const groups = await prisma.group.findMany({
-    where: {
-      membersList: {
-        some: {
-          user: {
-            auth0Id: auth0Id
+  try {
+    const auth0Id = req.auth.payload.sub!;
+    
+    const groups = await prisma.group.findMany({
+      where: {
+        membersList: {
+          some: {
+            user: {
+              auth0Id: auth0Id
+            }
+          }
+        }
+      },
+      include: {
+        membersList: {
+          include: { user: true }
+        },
+        expenses: {
+          include: {
+            payments: { include: { user: true } },
+            splits: { include: { user: true } }
           }
         }
       }
-    },
-    include: {
-      membersList: {
-        include: { user: true }
-      },
-      expenses: {
-        include: {
-          payments: true,
-          splits: true
-        }
-      }
-    }
-  });
-  
-  res.json(groups);
+    });
+    
+    res.json(groups.map(formatGroup));
+  } catch (error) {
+    console.error('Error fetching groups:', error);
+    res.status(500).json({ error: 'Failed to fetch groups' });
+  }
 });
 
 // Create group
 router.post('/', async (req: any, res) => {
-  const { name, budget, budgetCurrency } = req.body;
-  const auth0Id = req.auth.payload.sub!;
-  
-  // Ensure user exists
-  let user = await prisma.user.findUnique({ where: { auth0Id } });
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        auth0Id,
-        email: `${auth0Id}@placeholder.com`,
-        name: req.auth.payload.name || 'Unknown User'
-      }
-    });
-  }
+  try {
+    const { name, budget, budgetCurrency, description } = { ...req.query, ...req.body };
+    const auth0Id = req.auth?.payload?.sub;
+    
+    if (!auth0Id) return res.status(401).json({ error: 'Unauthorized: No Auth0 ID found in token' });
+    if (!name) return res.status(400).json({ error: 'Group name is required' });
 
-  const group = await prisma.group.create({
-    data: {
-      name,
-      budget: parseFloat(budget || 0),
-      budgetCurrency: budgetCurrency || 'INR',
-      createdById: user.id,
-      membersList: {
-        create: { 
-          user: { connect: { id: user.id } }
+    // Ensure user exists
+    let user = await prisma.user.findUnique({ where: { auth0Id } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          auth0Id,
+          email: req.auth.payload.email || `${auth0Id}@placeholder.com`,
+          name: req.auth.payload.name || req.auth.payload.nickname || 'Unknown User'
+        }
+      });
+    }
+
+    const group = await prisma.group.create({
+      data: {
+        name,
+        description: description || '',
+        budget: parseFloat(budget || 0),
+        budgetCurrency: budgetCurrency || 'INR',
+        createdById: user.id,
+        membersList: {
+          create: { 
+            user: { connect: { id: user.id } }
+          }
+        }
+      },
+      include: {
+        membersList: {
+          include: { user: true }
+        },
+        expenses: {
+          include: {
+            payments: { include: { user: true } },
+            splits: { include: { user: true } }
+          }
         }
       }
-    },
-    include: {
-      membersList: {
-        include: { user: true }
-      }
-    }
-  });
-  
-  res.json(group);
+    });
+    
+    res.json(formatGroup(group));
+  } catch (error) {
+    console.error('Error creating group:', error);
+    res.status(500).json({ error: 'Failed to create group', details: (error as Error).message });
+  }
 });
 
 // Get group by ID
@@ -95,43 +126,63 @@ router.get('/:id', async (req: any, res) => {
   });
   
   if (!group) return res.status(404).json({ error: 'Group not found' });
-  res.json(group);
+  res.json(formatGroup(group));
 });
 
 // Add member to group
 router.post('/:id/members', async (req: any, res) => {
-  const { id } = req.params;
-  const { email } = req.query;
-  
-  if (!email) return res.status(400).json({ error: 'Email is required' });
-  
-  let user = await prisma.user.findUnique({ where: { email: email as string } });
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email: email as string,
-        name: (email as string).split('@')[0] || 'Unknown'
-      }
+  try {
+    const { id } = req.params;
+    const { email, name } = { ...req.query, ...req.body };
+    
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+    
+    let user = await prisma.user.findUnique({ where: { email: email as string } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: email as string,
+          name: (name as string) || (email as string).split('@')[0] || 'Unknown'
+        }
+      });
+    }
+    
+    // Check if already a member
+    const existingMember = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId: id, userId: user.id } }
     });
-  }
-  
-  const group = await prisma.group.update({
-    where: { id },
-    data: {
-      membersList: {
-        create: { 
-          user: { connect: { id: user.id } }
+
+    if (existingMember) {
+      return res.status(400).json({ error: 'User is already a member of this group' });
+    }
+
+    const group = await prisma.group.update({
+      where: { id },
+      data: {
+        membersList: {
+          create: { 
+            user: { connect: { id: user.id } }
+          }
+        }
+      },
+      include: {
+        membersList: {
+          include: { user: true }
+        },
+        expenses: {
+          include: {
+            payments: { include: { user: true } },
+            splits: { include: { user: true } }
+          }
         }
       }
-    },
-    include: {
-      membersList: {
-        include: { user: true }
-      }
-    }
-  });
-  
-  res.json(group);
+    });
+    
+    res.json(formatGroup(group));
+  } catch (error) {
+    console.error('Error adding member:', error);
+    res.status(500).json({ error: 'Failed to add member', details: (error as Error).message });
+  }
 });
 
 // Settle debts
@@ -178,15 +229,22 @@ router.delete('/:id', async (req: any, res) => {
 
 // Set Family Name for Member
 router.patch('/members/:memberId/family', async (req: any, res) => {
-  const { memberId } = req.params;
-  const { familyName } = req.query;
-  
-  const user = await prisma.user.update({
-    where: { id: memberId },
-    data: { familyName: familyName as string }
-  });
-  
-  res.json(user);
+  try {
+    const { memberId } = req.params;
+    const { familyName } = { ...req.query, ...req.body };
+    
+    if (familyName === undefined) return res.status(400).json({ error: 'Family name is required' });
+
+    const user = await prisma.user.update({
+      where: { id: memberId },
+      data: { familyName: familyName as string }
+    });
+    
+    res.json(user);
+  } catch (error) {
+    console.error('Error setting family name:', error);
+    res.status(500).json({ error: 'Failed to set family name', details: (error as Error).message });
+  }
 });
 
 // Helper to parse Java-style date arrays [YYYY, MM, DD, HH, mm, ss, ns]
