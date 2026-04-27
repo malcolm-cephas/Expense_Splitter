@@ -176,8 +176,7 @@ function App() {
       try {
         const importedData = JSON.parse(e.target?.result as string);
         const token = await getAccessTokenSilently();
-        const { id, expenses, members, createdBy, ...rest } = importedData;
-        const response = await axios.post(`${API_BASE}/groups`, rest, {
+        const response = await axios.post(`${API_BASE}/groups/import`, importedData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setGroups([...groups, response.data]);

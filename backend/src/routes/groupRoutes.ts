@@ -183,4 +183,123 @@ router.patch('/members/:memberId/family', async (req: any, res) => {
   res.json(user);
 });
 
+// Helper to parse Java-style date arrays [YYYY, MM, DD, HH, mm, ss, ns]
+const parseJavaDate = (arr: any) => {
+  if (!Array.isArray(arr)) return new Date();
+  const [y, m, d, hh = 0, mm = 0, ss = 0] = arr;
+  return new Date(y, m - 1, d, hh, mm, ss);
+};
+
+router.post('/import', async (req: any, res) => {
+  const data = req.body;
+  const auth0Id = req.auth.payload.sub!;
+
+  try {
+    // 1. Ensure the importer exists
+    const importer = await prisma.user.findUnique({ where: { auth0Id } });
+    if (!importer) return res.status(404).json({ error: 'Importer not found' });
+
+    // 2. Create the Group
+    const group = await prisma.group.create({
+      data: {
+        name: data.name || 'Imported Group',
+        description: data.description,
+        budget: parseFloat(data.budget || 0),
+        budgetCurrency: data.budgetCurrency || 'INR',
+        familyGroupingEnabled: !!data.familyGroupingEnabled,
+        createdById: importer.id
+      }
+    });
+
+    // 3. Process Members
+    const emailToUuid: Record<string, string> = {};
+    if (Array.isArray(data.members)) {
+      for (const m of data.members) {
+        let user = await prisma.user.findUnique({ where: { email: m.email } });
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              email: m.email,
+              name: m.name,
+              familyName: m.familyName,
+              currencyPreference: m.currencyPreference
+            }
+          });
+        }
+        emailToUuid[m.email] = user.id;
+
+        // Connect to group
+        await prisma.groupMember.upsert({
+          where: { groupId_userId: { groupId: group.id, userId: user.id } },
+          create: { groupId: group.id, userId: user.id },
+          update: {}
+        });
+      }
+    }
+
+    // 4. Process Expenses
+    if (Array.isArray(data.expenses)) {
+      for (const e of data.expenses) {
+        const expense = await prisma.expense.create({
+          data: {
+            description: e.description,
+            amount: parseFloat(e.amount),
+            currency: e.currency,
+            category: e.category,
+            paymentMode: e.paymentMode,
+            splitType: e.splitType,
+            expenseDate: parseJavaDate(e.expenseDate),
+            createdAt: parseJavaDate(e.createdAt),
+            groupId: group.id
+          }
+        });
+
+        // Add Payments
+        if (Array.isArray(e.payments)) {
+          for (const p of e.payments) {
+            const userId = emailToUuid[p.userEmail];
+            if (userId) {
+              await prisma.expensePayment.create({
+                data: { amount: parseFloat(p.amount), expenseId: expense.id, userId }
+              });
+            }
+          }
+        }
+
+        // Add Splits
+        if (Array.isArray(e.splits)) {
+          for (const s of e.splits) {
+            const userId = emailToUuid[s.userEmail];
+            if (userId) {
+              await prisma.expenseSplit.create({
+                data: {
+                  owedAmount: parseFloat(s.owedAmount),
+                  paidAmount: parseFloat(s.paidAmount || 0),
+                  isPaid: !!s.isPaid,
+                  expenseId: expense.id,
+                  userId
+                }
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Return the full group with relations
+    const finalGroup = await prisma.group.findUnique({
+      where: { id: group.id },
+      include: {
+        members: { include: { user: true } },
+        expenses: { include: { payments: true, splits: true } }
+      }
+    });
+
+    res.json(finalGroup);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Import failed: ' + (error as Error).message });
+  }
+});
+
 export default router;
