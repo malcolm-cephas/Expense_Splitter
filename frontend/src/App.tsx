@@ -111,7 +111,10 @@ function App() {
       }, { headers: { Authorization: `Bearer ${token}` } });
       setGroups([...groups, response.data]);
       setNewGroupName(""); setNewGroupBudget("");
-    } catch(e) { console.error(e); }
+    } catch(e: any) { 
+      console.error(e); 
+      alert(`Failed to create group: ${e.response?.data?.error || e.message}`);
+    }
   };
 
   const handleContextMenu = (e: React.MouseEvent, type: 'GROUP' | 'EXPENSE' | 'MEMBER', data: any) => {
@@ -128,7 +131,10 @@ function App() {
       });
       setSelectedGroup(res.data);
       setGroups(groups.map(g => g.id === res.data.id ? res.data : g));
-    } catch(e) { console.error(e); }
+    } catch(e: any) { 
+      console.error(e); 
+      alert(`Failed to refresh group: ${e.response?.data?.error || e.message}`);
+    }
   };
 
   // --- Actions ---
@@ -153,7 +159,10 @@ function App() {
       });
       setSelectedGroup(res.data);
       alert(`Family Grouping ${res.data.familyGroupingEnabled ? "ENABLED" : "DISABLED"}`);
-    } catch(e) { console.error(e); }
+    } catch(e: any) { 
+      console.error(e); 
+      alert(`Failed to toggle family grouping: ${e.response?.data?.error || e.message}`);
+    }
   };
 
   const handleSetFamilyName = async (member: Member) => {
@@ -165,7 +174,10 @@ function App() {
         headers: { Authorization: `Bearer ${token}` }
       });
       refreshSelectedGroup();
-    } catch(e) { console.error(e); }
+    } catch(e: any) { 
+      console.error(e); 
+      alert(`Failed to set family name: ${e.response?.data?.error || e.message}`);
+    }
   };
 
   const handleImportJSON = (event: React.ChangeEvent<HTMLInputElement>) => {
