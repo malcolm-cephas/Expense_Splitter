@@ -41,7 +41,6 @@ router.post('/', async (req: any, res) => {
   // Ensure user exists
   let user = await prisma.user.findUnique({ where: { auth0Id } });
   if (!user) {
-    // If user doesn't exist, create with placeholder name/email
     user = await prisma.user.create({
       data: {
         auth0Id,
@@ -58,7 +57,9 @@ router.post('/', async (req: any, res) => {
       budgetCurrency: budgetCurrency || 'INR',
       createdById: user.id,
       members: {
-        create: { userId: user.id }
+        create: { 
+          user: { connect: { id: user.id } }
+        }
       }
     },
     include: {
@@ -77,7 +78,9 @@ router.get('/:id', async (req: any, res) => {
   const group = await prisma.group.findUnique({
     where: { id },
     include: {
-      members: true,
+      members: {
+        include: { user: true }
+      },
       expenses: {
         include: {
           payments: {
@@ -102,7 +105,6 @@ router.post('/:id/members', async (req: any, res) => {
   
   if (!email) return res.status(400).json({ error: 'Email is required' });
   
-  // Find or create user by email
   let user = await prisma.user.findUnique({ where: { email: email as string } });
   if (!user) {
     user = await prisma.user.create({
@@ -117,7 +119,9 @@ router.post('/:id/members', async (req: any, res) => {
     where: { id },
     data: {
       members: {
-        create: { userId: user.id }
+        create: { 
+          user: { connect: { id: user.id } }
+        }
       }
     },
     include: {
@@ -130,7 +134,7 @@ router.post('/:id/members', async (req: any, res) => {
   res.json(group);
 });
 
-// Settle debts (Debt Graph)
+// Settle debts
 import { calculateSimplifiedDebts } from '../services/settlementService.js';
 
 router.get('/:id/debt-graph', async (req: any, res) => {
@@ -156,7 +160,9 @@ router.patch('/:id/family-grouping', async (req: any, res) => {
       familyGroupingEnabled: !group.familyGroupingEnabled
     },
     include: {
-      members: true
+      members: {
+        include: { user: true }
+      }
     }
   });
   
@@ -195,11 +201,9 @@ router.post('/import', async (req: any, res) => {
   const auth0Id = req.auth.payload.sub!;
 
   try {
-    // 1. Ensure the importer exists
     const importer = await prisma.user.findUnique({ where: { auth0Id } });
     if (!importer) return res.status(404).json({ error: 'Importer not found' });
 
-    // 2. Create the Group
     const group = await prisma.group.create({
       data: {
         name: data.name || 'Imported Group',
@@ -211,7 +215,6 @@ router.post('/import', async (req: any, res) => {
       }
     });
 
-    // 3. Process Members
     const emailToUuid: Record<string, string> = {};
     if (Array.isArray(data.members)) {
       for (const m of data.members) {
@@ -228,16 +231,17 @@ router.post('/import', async (req: any, res) => {
         }
         emailToUuid[m.email] = user.id;
 
-        // Connect to group
         await prisma.groupMember.upsert({
           where: { groupId_userId: { groupId: group.id, userId: user.id } },
-          create: { groupId: group.id, userId: user.id },
+          create: { 
+            group: { connect: { id: group.id } },
+            user: { connect: { id: user.id } }
+          },
           update: {}
         });
       }
     }
 
-    // 4. Process Expenses
     if (Array.isArray(data.expenses)) {
       for (const e of data.expenses) {
         const expense = await prisma.expense.create({
@@ -254,19 +258,21 @@ router.post('/import', async (req: any, res) => {
           }
         });
 
-        // Add Payments
         if (Array.isArray(e.payments)) {
           for (const p of e.payments) {
             const userId = emailToUuid[p.userEmail];
             if (userId) {
               await prisma.expensePayment.create({
-                data: { amount: parseFloat(p.amount), expenseId: expense.id, userId }
+                data: { 
+                  amount: parseFloat(p.amount), 
+                  expense: { connect: { id: expense.id } },
+                  user: { connect: { id: userId } }
+                }
               });
             }
           }
         }
 
-        // Add Splits
         if (Array.isArray(e.splits)) {
           for (const s of e.splits) {
             const userId = emailToUuid[s.userEmail];
@@ -276,8 +282,8 @@ router.post('/import', async (req: any, res) => {
                   owedAmount: parseFloat(s.owedAmount),
                   paidAmount: parseFloat(s.paidAmount || 0),
                   isPaid: !!s.isPaid,
-                  expenseId: expense.id,
-                  userId
+                  expense: { connect: { id: expense.id } },
+                  user: { connect: { id: userId } }
                 }
               });
             }
@@ -286,7 +292,6 @@ router.post('/import', async (req: any, res) => {
       }
     }
 
-    // Return the full group with relations
     const finalGroup = await prisma.group.findUnique({
       where: { id: group.id },
       include: {
