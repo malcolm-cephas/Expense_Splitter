@@ -181,7 +181,10 @@ function App() {
         });
         setGroups([...groups, response.data]);
         alert("Backup imported successfully!");
-      } catch (err) { alert("Invalid backup file."); }
+      } catch (err: any) {
+        console.error(err);
+        alert(`Import failed: ${err.response?.data?.error || err.message}`);
+      }
     };
     reader.readAsText(file!);
   };
