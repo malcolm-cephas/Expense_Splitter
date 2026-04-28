@@ -18,7 +18,7 @@ const formatGroup = (g: any) => ({
 router.get('/', async (req: any, res) => {
   try {
     const auth0Id = req.auth.payload.sub!;
-    
+
     const groups = await prisma.group.findMany({
       where: {
         membersList: {
@@ -41,7 +41,7 @@ router.get('/', async (req: any, res) => {
         }
       }
     });
-    
+
     res.json(groups.map(formatGroup));
   } catch (error) {
     console.error('Error fetching groups:', error);
@@ -54,13 +54,19 @@ router.post('/', async (req: any, res) => {
   try {
     const { name, budget, budgetCurrency, description } = { ...req.query, ...req.body };
     const auth0Id = req.auth?.payload?.sub;
-    
-    if (!auth0Id) return res.status(401).json({ error: 'Unauthorized: No Auth0 ID found in token' });
+
+    console.log('Creating group with data:', { name, budget, auth0Id });
+
+    if (!auth0Id) {
+      console.warn('Unauthorized attempt to create group: No Auth0 ID');
+      return res.status(401).json({ error: 'Unauthorized: No Auth0 ID found in token' });
+    }
     if (!name) return res.status(400).json({ error: 'Group name is required' });
 
     // Ensure user exists
     let user = await prisma.user.findUnique({ where: { auth0Id } });
     if (!user) {
+      console.log('User not found in DB, creating new user for auth0Id:', auth0Id);
       user = await prisma.user.create({
         data: {
           auth0Id,
@@ -78,7 +84,7 @@ router.post('/', async (req: any, res) => {
         budgetCurrency: budgetCurrency || 'INR',
         createdById: user.id,
         membersList: {
-          create: { 
+          create: {
             user: { connect: { id: user.id } }
           }
         }
@@ -95,7 +101,8 @@ router.post('/', async (req: any, res) => {
         }
       }
     });
-    
+
+    console.log('Group created successfully:', group.id);
     res.json(formatGroup(group));
   } catch (error) {
     console.error('Error creating group:', error);
@@ -124,7 +131,7 @@ router.get('/:id', async (req: any, res) => {
       }
     }
   });
-  
+
   if (!group) return res.status(404).json({ error: 'Group not found' });
   res.json(formatGroup(group));
 });
@@ -134,11 +141,17 @@ router.post('/:id/members', async (req: any, res) => {
   try {
     const { id } = req.params;
     const { email, name } = { ...req.query, ...req.body };
-    
-    if (!email) return res.status(400).json({ error: 'Email is required' });
-    
+
+    console.log(`Adding member to group ${id}:`, { email, name });
+
+    if (!email) {
+      console.warn('Attempt to add member without email');
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
     let user = await prisma.user.findUnique({ where: { email: email as string } });
     if (!user) {
+      console.log('Creating new user for invite:', email);
       user = await prisma.user.create({
         data: {
           email: email as string,
@@ -146,13 +159,14 @@ router.post('/:id/members', async (req: any, res) => {
         }
       });
     }
-    
+
     // Check if already a member
     const existingMember = await prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId: id, userId: user.id } }
     });
 
     if (existingMember) {
+      console.log(`User ${email} already in group ${id}`);
       return res.status(400).json({ error: 'User is already a member of this group' });
     }
 
@@ -160,7 +174,7 @@ router.post('/:id/members', async (req: any, res) => {
       where: { id },
       data: {
         membersList: {
-          create: { 
+          create: {
             user: { connect: { id: user.id } }
           }
         }
@@ -177,7 +191,8 @@ router.post('/:id/members', async (req: any, res) => {
         }
       }
     });
-    
+
+    console.log(`User ${email} added to group ${id} successfully`);
     res.json(formatGroup(group));
   } catch (error) {
     console.error('Error adding member:', error);
@@ -204,7 +219,7 @@ router.patch('/:id/family-grouping', async (req: any, res) => {
   const { id } = req.params;
   const group = await prisma.group.findUnique({ where: { id } });
   if (!group) return res.status(404).json({ error: 'Group not found' });
-  
+
   const updated = await prisma.group.update({
     where: { id },
     data: {
@@ -216,7 +231,7 @@ router.patch('/:id/family-grouping', async (req: any, res) => {
       }
     }
   });
-  
+
   res.json(updated);
 });
 
@@ -232,14 +247,14 @@ router.patch('/members/:memberId/family', async (req: any, res) => {
   try {
     const { memberId } = req.params;
     const { familyName } = { ...req.query, ...req.body };
-    
+
     if (familyName === undefined) return res.status(400).json({ error: 'Family name is required' });
 
     const user = await prisma.user.update({
       where: { id: memberId },
       data: { familyName: familyName as string }
     });
-    
+
     res.json(user);
   } catch (error) {
     console.error('Error setting family name:', error);
@@ -291,7 +306,7 @@ router.post('/import', async (req: any, res) => {
 
         await prisma.groupMember.upsert({
           where: { groupId_userId: { groupId: group.id, userId: user.id } },
-          create: { 
+          create: {
             group: { connect: { id: group.id } },
             user: { connect: { id: user.id } }
           },
@@ -321,8 +336,8 @@ router.post('/import', async (req: any, res) => {
             const userId = emailToUuid[p.userEmail];
             if (userId) {
               await prisma.expensePayment.create({
-                data: { 
-                  amount: parseFloat(p.amount), 
+                data: {
+                  amount: parseFloat(p.amount),
                   expense: { connect: { id: expense.id } },
                   user: { connect: { id: userId } }
                 }

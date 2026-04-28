@@ -7,17 +7,23 @@ const router = Router();
 router.post('/', async (req: any, res) => {
   try {
     const { groupId, paidById, amount, description, category, expenseDate, splitType, splitMemberIds } = { ...req.query, ...req.body };
-    
+
+    console.log('Creating expense:', { groupId, paidById, amount, description });
+
     if (!groupId || !paidById || !amount || !description) {
+      console.warn('Missing required parameters for expense creation');
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
     const amt = parseFloat(amount as string);
     const memberIds = typeof splitMemberIds === 'string' ? splitMemberIds.split(',') : (Array.isArray(splitMemberIds) ? splitMemberIds : []);
-    
+
     if (memberIds.length === 0) {
+      console.warn('Empty split member list');
       return res.status(400).json({ error: 'At least one member must be involved in the split' });
     }
+
+    console.log(`Splitting INR ${amt} between ${memberIds.length} members`);
 
     // Simple equal split logic for now
     const splitAmount = amt / memberIds.length;
@@ -49,6 +55,7 @@ router.post('/', async (req: any, res) => {
       }
     });
 
+    console.log('Expense created successfully:', expense.id);
     res.json(expense);
   } catch (error) {
     console.error('Error creating expense:', error);

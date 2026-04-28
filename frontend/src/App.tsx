@@ -103,6 +103,7 @@ function App() {
   }, [isAuthenticated, getAccessTokenSilently]);
 
   const handleCreateGroup = async () => {
+    if (!isAuthenticated) return alert("Please login first");
     if (!newGroupName) return alert("Enter group name");
     try {
       const token = await getAccessTokenSilently();
@@ -111,8 +112,9 @@ function App() {
       }, { headers: { Authorization: `Bearer ${token}` } });
       setGroups([...groups, response.data]);
       setNewGroupName(""); setNewGroupBudget("");
-    } catch(e: any) { 
-      console.error(e); 
+      alert("Group created successfully!");
+    } catch (e: any) {
+      console.error(e);
       alert(`Failed to create group: ${e.response?.data?.error || e.message}`);
     }
   };
@@ -131,8 +133,8 @@ function App() {
       });
       setSelectedGroup(res.data);
       setGroups(groups.map(g => g.id === res.data.id ? res.data : g));
-    } catch(e: any) { 
-      console.error(e); 
+    } catch (e: any) {
+      console.error(e);
       alert(`Failed to refresh group: ${e.response?.data?.error || e.message}`);
     }
   };
@@ -147,7 +149,10 @@ function App() {
       });
       setSettlementGraph(res.data.edges || []);
       setActiveModal('SETTLE_UP');
-    } catch(e) { alert("Failed to calculate debts"); }
+    } catch (e: any) {
+      console.error(e);
+      alert(`Failed to calculate debts: ${e.response?.data?.error || e.message}`);
+    }
   };
 
   const toggleFamilyGrouping = async () => {
@@ -159,8 +164,8 @@ function App() {
       });
       setSelectedGroup(res.data);
       alert(`Family Grouping ${res.data.familyGroupingEnabled ? "ENABLED" : "DISABLED"}`);
-    } catch(e: any) { 
-      console.error(e); 
+    } catch (e: any) {
+      console.error(e);
       alert(`Failed to toggle family grouping: ${e.response?.data?.error || e.message}`);
     }
   };
@@ -174,8 +179,8 @@ function App() {
         headers: { Authorization: `Bearer ${token}` }
       });
       refreshSelectedGroup();
-    } catch(e: any) { 
-      console.error(e); 
+    } catch (e: any) {
+      console.error(e);
       alert(`Failed to set family name: ${e.response?.data?.error || e.message}`);
     }
   };
@@ -214,34 +219,41 @@ function App() {
 
   const handleExportPDF = () => {
     if (!selectedGroup) return;
-    const doc = new jsPDF();
-    doc.text(`${selectedGroup.name} Report`, 14, 20);
-    const data = (selectedGroup.expenses || []).map(e => [e.expenseDate, e.description, e.category, e.amount]);
-    (doc as any).autoTable({ startY: 25, head: [['Date', 'Description', 'Category', 'Amount']], body: data });
-    doc.save(`${selectedGroup.name}_Report.pdf`);
+    try {
+      const doc = new jsPDF();
+      doc.text(`${selectedGroup.name} Report`, 14, 20);
+      const data = (selectedGroup.expenses || []).map(e => [e.expenseDate, e.description, e.category, e.amount]);
+      (doc as any).autoTable({ startY: 25, head: [['Date', 'Description', 'Category', 'Amount']], body: data });
+      doc.save(`${selectedGroup.name}_Report.pdf`);
+    } catch (e: any) {
+      console.error(e);
+      alert("Error generating PDF");
+    }
   };
 
   const submitAddExpense = async () => {
     const amt = parseFloat(expAmt);
-    if (!expDesc || isNaN(amt) || involvedMembers.length === 0) return alert("Fill all fields");
+    if (!expDesc || isNaN(amt) || involvedMembers.length === 0) return alert("Fill all fields and select members");
     try {
       const token = await getAccessTokenSilently();
-      await axios.post(`${API_BASE}/expenses`, null, {
-        params: {
-          groupId: selectedGroup?.id,
-          paidById: expPayerId,
-          amount: amt,
-          description: expDesc,
-          category: expCat,
-          expenseDate: expDate,
-          splitType: 'EQUAL',
-          splitMemberIds: involvedMembers.join(",")
-        },
+      await axios.post(`${API_BASE}/expenses`, {
+        groupId: selectedGroup?.id,
+        paidById: expPayerId,
+        amount: amt,
+        description: expDesc,
+        category: expCat,
+        expenseDate: expDate,
+        splitType: 'EQUAL',
+        splitMemberIds: involvedMembers
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       refreshSelectedGroup();
       setActiveModal(null);
-    } catch(e) { alert("Failed to add expense"); }
+    } catch (e: any) {
+      console.error(e);
+      alert(`Failed to add expense: ${e.response?.data?.error || e.message}`);
+    }
   };
 
   const totalSpent = selectedGroup?.expenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
@@ -250,28 +262,28 @@ function App() {
   const progressClass = progress >= 100 ? "danger" : progress >= 80 ? "warning" : "success";
 
   return (
-    <div className="app-border-pane" onContextMenu={(e)=>e.preventDefault()}>
+    <div className="app-border-pane" onContextMenu={(e) => e.preventDefault()}>
       <div className="header-bar">
         <div className="brand-title">💸 Expense Splitter Pro</div>
         <div className="header-tools">
-          <button className="fx-button" onClick={()=>setIsDark(!isDark)}>{isDark ? "☀️" : "🌙"}</button>
-          {isAuthenticated ? <button className="fx-button" onClick={()=>logout()}>Logout</button> : <button className="fx-button accent" onClick={()=>loginWithRedirect()}>Login</button>}
+          <button className="fx-button" onClick={() => setIsDark(!isDark)}>{isDark ? "☀️" : "🌙"}</button>
+          {isAuthenticated ? <button className="fx-button" onClick={() => logout()}>Logout</button> : <button className="fx-button accent" onClick={() => loginWithRedirect()}>Login</button>}
         </div>
       </div>
 
       <div className="main-body">
-        <div className="sidebar" onContextMenu={(e)=>e.preventDefault()}>
+        <div className="sidebar" onContextMenu={(e) => e.preventDefault()}>
           <h2>Groups</h2>
           <div className="list-view">
             {groups.map(g => (
-              <div key={g.id} className="list-item" onClick={()=>setSelectedGroup(g)} onContextMenu={(ex)=>handleContextMenu(ex, "GROUP", g)} style={{background: selectedGroup?.id === g.id ? "var(--list-selected)" : ""}}>
+              <div key={g.id} className="list-item" onClick={() => setSelectedGroup(g)} onContextMenu={(ex) => handleContextMenu(ex, "GROUP", g)} style={{ background: selectedGroup?.id === g.id ? "var(--list-selected)" : "" }}>
                 📁 {g.name}
               </div>
             ))}
           </div>
           <h4>New Group</h4>
-          <input className="fx-input" placeholder="Name" value={newGroupName} onChange={e=>setNewGroupName((e.target as HTMLInputElement).value)} />
-          <input className="fx-input" placeholder="Budget" value={newGroupBudget} onChange={e=>setNewGroupBudget((e.target as HTMLInputElement).value)} />
+          <input className="fx-input" placeholder="Name" value={newGroupName} onChange={e => setNewGroupName((e.target as HTMLInputElement).value)} />
+          <input className="fx-input" placeholder="Budget" value={newGroupBudget} onChange={e => setNewGroupBudget((e.target as HTMLInputElement).value)} />
           <button className="fx-button accent" onClick={handleCreateGroup}>Create</button>
           <h4>Tools</h4>
           <input type="file" ref={fileInputRef} onChange={handleImportJSON} style={{ display: 'none' }} accept=".json" />
@@ -288,15 +300,15 @@ function App() {
                 </div>
                 <div className="flex-row gap-10">
                   <button className="fx-button" onClick={toggleFamilyGrouping}>{selectedGroup.familyGroupingEnabled ? "👨‍👩‍👧 Family ON" : "🏠 Family OFF"}</button>
-                  <button className="fx-button accent" onClick={()=>setActiveModal("ADD_MEMBER")}>Add Member</button>
-                  <button className="fx-button accent" onClick={()=>{
+                  <button className="fx-button accent" onClick={() => setActiveModal("ADD_MEMBER")}>Add Member</button>
+                  <button className="fx-button accent" onClick={() => {
                     setExpDesc(""); setExpAmt(""); setExpDate(new Date().toISOString().split("T")[0]);
-                    setExpPayerId(selectedGroup.members[0].id); setInvolvedMembers(selectedGroup.members.map((m: Member)=>m.id));
+                    setExpPayerId(selectedGroup.members[0].id); setInvolvedMembers(selectedGroup.members.map((m: Member) => m.id));
                     setActiveModal("ADD_EXPENSE");
                   }}>Add Expense</button>
                   <button className="fx-button" onClick={loadSettlements}>Settle Up</button>
                   <button className="fx-button" onClick={handleExportPDF}>PDF</button>
-                  <button className="fx-button" onClick={()=>setActiveModal("STATS")}>Stats</button>
+                  <button className="fx-button" onClick={() => setActiveModal("STATS")}>Stats</button>
                 </div>
               </div>
 
@@ -307,7 +319,7 @@ function App() {
                     <span className="text-muted">{progress.toFixed(1)}%</span>
                   </div>
                   <div className="progress-container">
-                    <div className={`progress-bar ${progressClass}`} style={{width: `${Math.min(progress, 100)}%`}}></div>
+                    <div className={`progress-bar ${progressClass}`} style={{ width: `${Math.min(progress, 100)}%` }}></div>
                   </div>
                 </div>
               )}
@@ -316,8 +328,8 @@ function App() {
                 <div className="flex-2 flex-col">
                   <h3>Expenses (Right-click to Edit)</h3>
                   <div className="list-view flex-1">
-                    {selectedGroup.expenses?.map((e, i)=>(
-                      <div key={i} className="list-item" onContextMenu={(ex)=>handleContextMenu(ex, "EXPENSE", e)}>
+                    {selectedGroup.expenses?.map((e, i) => (
+                      <div key={i} className="list-item" onContextMenu={(ex) => handleContextMenu(ex, "EXPENSE", e)}>
                         <span>{e.description} <small className="text-muted">({e.category})</small></span>
                         <span className="ml-auto bold">INR {e.amount}</span>
                       </div>
@@ -327,8 +339,8 @@ function App() {
                 <div className="flex-1 flex-col">
                   <h3>Members (Right-click)</h3>
                   <div className="list-view flex-1">
-                    {selectedGroup.members?.map(m=>(
-                      <div key={m.id} className="list-item" onContextMenu={(ex)=>handleContextMenu(ex, "MEMBER", m)}>
+                    {selectedGroup.members?.map(m => (
+                      <div key={m.id} className="list-item" onContextMenu={(ex) => handleContextMenu(ex, "MEMBER", m)}>
                         👤 {m.name} {m.familyName && <span className="family-badge">{m.familyName}</span>}
                       </div>
                     ))}
@@ -341,25 +353,25 @@ function App() {
       </div>
 
       {menu && (
-        <div className="context-menu" style={{top: menu.y, left: menu.x}}>
+        <div className="context-menu" style={{ top: menu.y, left: menu.x }}>
           {menu.type === "EXPENSE" && (
             <>
               <div className="context-menu-item" onClick={() => { setExpDesc(menu.data.description); setExpAmt(menu.data.amount); setExpCat(menu.data.category); setExpDate(menu.data.expenseDate); setActiveModal("ADD_EXPENSE"); }}>Edit</div>
-              <div className="context-menu-item danger" onClick={async ()=>{
+              <div className="context-menu-item danger" onClick={async () => {
                 const token = await getAccessTokenSilently();
-                await axios.delete(`${API_BASE}/expenses/${menu.data.id}`, {headers: {Authorization: `Bearer ${token}`}});
+                await axios.delete(`${API_BASE}/expenses/${menu.data.id}`, { headers: { Authorization: `Bearer ${token}` } });
                 refreshSelectedGroup();
               }}>Delete</div>
             </>
           )}
-          {menu.type === "MEMBER" && <div className="context-menu-item" onClick={()=>handleSetFamilyName(menu.data)}>Set Family</div>}
+          {menu.type === "MEMBER" && <div className="context-menu-item" onClick={() => handleSetFamilyName(menu.data)}>Set Family</div>}
           {menu.type === "GROUP" && (
             <>
-              <div className="context-menu-item" onClick={()=>handleExportJSON()}>Export Backup</div>
-              <div className="context-menu-item danger" onClick={async ()=>{
+              <div className="context-menu-item" onClick={() => handleExportJSON()}>Export Backup</div>
+              <div className="context-menu-item danger" onClick={async () => {
                 const token = await getAccessTokenSilently();
-                await axios.delete(`${API_BASE}/groups/${menu.data.id}`, {headers: {Authorization: `Bearer ${token}`}});
-                setGroups(groups.filter(g=>g.id!==menu.data.id));
+                await axios.delete(`${API_BASE}/groups/${menu.data.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                setGroups(groups.filter(g => g.id !== menu.data.id));
                 if (selectedGroup?.id === menu.data.id) setSelectedGroup(null);
               }}>Delete Group</div>
             </>
@@ -371,13 +383,13 @@ function App() {
       {activeModal === "ADD_MEMBER" && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <div className="modal-header"><span>Invite</span><button onClick={()=>setActiveModal(null)}>✖</button></div>
+            <div className="modal-header"><span>Invite</span><button onClick={() => setActiveModal(null)}>✖</button></div>
             <div className="modal-body">
-              <input className="fx-input" placeholder="Email" value={memberEmail} onChange={e=>setMemberEmail((e.target as HTMLInputElement).value)} />
+              <input className="fx-input" placeholder="Email" value={memberEmail} onChange={e => setMemberEmail((e.target as HTMLInputElement).value)} />
             </div>
-            <div className="modal-footer"><button className="fx-button accent" onClick={async ()=>{
+            <div className="modal-footer"><button className="fx-button accent" onClick={async () => {
               const token = await getAccessTokenSilently();
-              await axios.post(`${API_BASE}/groups/${selectedGroup?.id}/members?email=${encodeURIComponent(memberEmail)}`, {}, {headers: {Authorization: `Bearer ${token}`}});
+              await axios.post(`${API_BASE}/groups/${selectedGroup?.id}/members?email=${encodeURIComponent(memberEmail)}`, {}, { headers: { Authorization: `Bearer ${token}` } });
               refreshSelectedGroup(); setActiveModal(null); setMemberEmail("");
             }}>Add</button></div>
           </div>
@@ -387,23 +399,23 @@ function App() {
       {activeModal === "ADD_EXPENSE" && (
         <div className="modal-overlay">
           <div className="modal-content w-450">
-            <div className="modal-header"><span>Expense</span><button onClick={()=>setActiveModal(null)}>✖</button></div>
+            <div className="modal-header"><span>Expense</span><button onClick={() => setActiveModal(null)}>✖</button></div>
             <div className="modal-body flex-col gap-10">
-              <input className="fx-input" placeholder="Desc" value={expDesc} onChange={e=>setExpDesc((e.target as HTMLInputElement).value)} />
-              <input className="fx-input" type="number" placeholder="Amt" value={expAmt} onChange={e=>setExpAmt((e.target as HTMLInputElement).value)} />
-              <select className="fx-input" value={expCat} onChange={e=>setExpCat((e.target as HTMLSelectElement).value)}>
+              <input className="fx-input" placeholder="Desc" value={expDesc} onChange={e => setExpDesc((e.target as HTMLInputElement).value)} />
+              <input className="fx-input" type="number" placeholder="Amt" value={expAmt} onChange={e => setExpAmt((e.target as HTMLInputElement).value)} />
+              <select className="fx-input" value={expCat} onChange={e => setExpCat((e.target as HTMLSelectElement).value)}>
                 <option>Food</option><option>Travel</option><option>Utilities</option><option>Entertainment</option><option>Other</option>
               </select>
-              <input className="fx-input" type="date" value={expDate} onChange={e=>setExpDate((e.target as HTMLInputElement).value)} />
+              <input className="fx-input" type="date" value={expDate} onChange={e => setExpDate((e.target as HTMLInputElement).value)} />
               <label>Paid By:</label>
-              <select className="fx-input" value={expPayerId} onChange={e=>setExpPayerId((e.target as HTMLSelectElement).value)}>
-                {selectedGroup?.members.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+              <select className="fx-input" value={expPayerId} onChange={e => setExpPayerId((e.target as HTMLSelectElement).value)}>
+                {selectedGroup?.members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
               <label>Split:</label>
               <div className="split-checklist">
-                {selectedGroup?.members.map(m=>(
+                {selectedGroup?.members.map(m => (
                   <div key={m.id} className="flex-row gap-10 items-center">
-                    <input type="checkbox" checked={involvedMembers.includes(m.id)} onChange={()=>setInvolvedMembers(p=>p.includes(m.id)?p.filter(x=>x!==m.id):[...p, m.id])} />
+                    <input type="checkbox" checked={involvedMembers.includes(m.id)} onChange={() => setInvolvedMembers(p => p.includes(m.id) ? p.filter(x => x !== m.id) : [...p, m.id])} />
                     <span>{m.name}</span>
                   </div>
                 ))}
@@ -417,16 +429,16 @@ function App() {
       {activeModal === "SETTLE_UP" && (
         <div className="modal-overlay">
           <div className="modal-content w-450">
-            <div className="modal-header"><span>Settle Up Suggestions</span><button onClick={()=>setActiveModal(null)}>✖</button></div>
+            <div className="modal-header"><span>Settle Up Suggestions</span><button onClick={() => setActiveModal(null)}>✖</button></div>
             <div className="modal-body">
-              {settlementGraph.length === 0 ? <p className="text-center">No debts!</p> : settlementGraph.map((ed, i)=>(
+              {settlementGraph.length === 0 ? <p className="text-center">No debts!</p> : settlementGraph.map((ed, i) => (
                 <div key={i} className="list-item">
                   <span>{ed.from} owes {ed.to}</span>
                   <span className="ml-auto bold">INR {ed.amount.toFixed(2)}</span>
                 </div>
               ))}
             </div>
-            <div className="modal-footer"><button className="fx-button accent" onClick={()=>setActiveModal(null)}>Close</button></div>
+            <div className="modal-footer"><button className="fx-button accent" onClick={() => setActiveModal(null)}>Close</button></div>
           </div>
         </div>
       )}
@@ -434,21 +446,21 @@ function App() {
       {activeModal === "STATS" && selectedGroup && (
         <div className="modal-overlay">
           <div className="modal-content w-600">
-            <div className="modal-header"><span>Stats</span><button onClick={()=>setActiveModal(null)}>✖</button></div>
+            <div className="modal-header"><span>Stats</span><button onClick={() => setActiveModal(null)}>✖</button></div>
             <div className="modal-body h-400">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={(() => {
                     const m: Record<string, number> = {}; selectedGroup.expenses?.forEach(e => m[e.category] = (m[e.category] || 0) + e.amount);
                     return Object.keys(m).map(n => ({ name: n, value: m[n] }));
-                  })()} outerRadius={120} label={({name, percent})=>`${name} ${((percent || 0)*100).toFixed(0)}%`} dataKey="value">
-                    {COLORS.map((c, i)=><Cell key={i} fill={c}/>)}
+                  })()} outerRadius={120} label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} dataKey="value">
+                    {COLORS.map((c, i) => <Cell key={i} fill={c} />)}
                   </Pie>
-                  <Tooltip/><Legend/>
+                  <Tooltip /><Legend />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="modal-footer"><button className="fx-button accent" onClick={()=>setActiveModal(null)}>Close</button></div>
+            <div className="modal-footer"><button className="fx-button accent" onClick={() => setActiveModal(null)}>Close</button></div>
           </div>
         </div>
       )}
