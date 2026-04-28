@@ -33,9 +33,9 @@ export const calculateSimplifiedDebts = async (groupId: string): Promise<Transac
   if (!group) throw new Error('Group not found');
 
   const balances: Record<string, number> = {};
-  
+
   // Extract real users from the links
-  const users = group.membersList.map(ul => ul.user);
+  const users = group.membersList.map((ul: any) => ul.user);
 
   // Initialize balances for all members
   users.forEach((u: any) => {

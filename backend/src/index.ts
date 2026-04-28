@@ -74,8 +74,15 @@ import expenseRoutes from './routes/expenseRoutes.js';
 app.use('/groups', checkJwt, groupRoutes);
 app.use('/expenses', checkJwt, expenseRoutes);
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+app.get('/health', async (req, res) => {
+  try {
+    // Simple check to verify DB connectivity
+    await prisma.user.findFirst();
+    res.json({ status: 'ok', database: 'connected' });
+  } catch (err: any) {
+    console.error('Health check failed:', err);
+    res.json({ status: 'partial', database: 'error', error: err.message });
+  }
 });
 
 app.listen(port, () => {
