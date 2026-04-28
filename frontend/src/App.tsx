@@ -154,7 +154,8 @@ function App() {
       alert("Group created successfully!");
     } catch (e: any) {
       console.error("Create Group Error:", e);
-      const msg = e.response?.data?.error || e.response?.data?.details || e.message;
+      let msg = e.response?.data?.error || e.response?.data?.details || e.message;
+      if (typeof msg === 'object') msg = JSON.stringify(msg);
       alert(`Failed to create group: ${msg}`);
       if (e.response?.status === 401) alert("Hint: Check if the backend AUTH0_AUDIENCE matches the frontend VITE_AUTH0_AUDIENCE");
     }
