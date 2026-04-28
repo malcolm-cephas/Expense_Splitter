@@ -71,10 +71,10 @@ const userMiddleware = async (req: any, res: any, next: any) => {
 import groupRoutes from './routes/groupRoutes.js';
 import expenseRoutes from './routes/expenseRoutes.js';
 
-app.use('/groups', checkJwt, groupRoutes);
-app.use('/expenses', checkJwt, expenseRoutes);
+app.use('/api/groups', checkJwt, groupRoutes);
+app.use('/api/expenses', checkJwt, expenseRoutes);
 
-app.get('/health', async (req, res) => {
+app.get('/api/health', async (req, res) => {
   try {
     // Simple check to verify DB connectivity
     await prisma.user.findFirst();
