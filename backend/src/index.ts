@@ -17,8 +17,8 @@ app.use(express.json());
 // Logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  if (Object.keys(req.body).length > 0) console.log('Body:', JSON.stringify(req.body, null, 2));
-  if (Object.keys(req.query).length > 0) console.log('Query:', JSON.stringify(req.query, null, 2));
+  if (req.body && Object.keys(req.body).length > 0) console.log('Body:', JSON.stringify(req.body, null, 2));
+  if (req.query && Object.keys(req.query).length > 0) console.log('Query:', JSON.stringify(req.query, null, 2));
   next();
 });
 
