@@ -6,7 +6,8 @@ import "jspdf-autotable";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import "./App.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL ||
+  (typeof window !== "undefined" && !window.location.hostname.includes("localhost") ? "/api" : "http://localhost:8080/api");
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 interface Member {
