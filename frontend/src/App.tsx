@@ -51,10 +51,11 @@ interface ContextMenu {
 }
 
 function App() {
-  const { loginWithRedirect, logout, isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { loginWithRedirect, logout, isAuthenticated, getAccessTokenSilently, isLoading, user: auth0User } = useAuth0();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [backendStatus, setBackendStatus] = useState<string>("checking...");
 
   // Modal/Form States
   const [activeModal, setActiveModal] = useState<string | null>(null); // 'ADD_MEMBER', 'ADD_EXPENSE', 'STATS', 'SETTLE_UP'
@@ -78,6 +79,23 @@ function App() {
   const [memberEmail, setMemberEmail] = useState("");
 
   useEffect(() => {
+    console.log("Auth State:", { isAuthenticated, isLoading, user: auth0User });
+  }, [isAuthenticated, isLoading, auth0User]);
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        await axios.get(`${API_BASE}/health`);
+        setBackendStatus("connected");
+      } catch (e) {
+        console.error("Backend unreachable:", e);
+        setBackendStatus("unreachable");
+      }
+    };
+    checkConnection();
+  }, []);
+
+  useEffect(() => {
     if (isDark) document.documentElement.classList.add("dark-theme");
     else document.documentElement.classList.remove("dark-theme");
   }, [isDark]);
@@ -90,32 +108,55 @@ function App() {
 
   useEffect(() => {
     const fetchGroups = async () => {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated || isLoading) return;
       try {
         const token = await getAccessTokenSilently();
         const response = await axios.get(`${API_BASE}/groups`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setGroups(response.data);
-      } catch (e) { console.error(e); }
+      } catch (e: any) {
+        console.error("Fetch Groups Error:", e);
+        if (e.response?.status === 401) console.error("JWT Authentication failed on backend check secret/audience");
+      }
     };
     fetchGroups();
-  }, [isAuthenticated, getAccessTokenSilently]);
+  }, [isAuthenticated, isLoading, getAccessTokenSilently]);
 
   const handleCreateGroup = async () => {
-    if (!isAuthenticated) return alert("Please login first");
+    console.log("handleCreateGroup triggered:", { newGroupName, isAuthenticated, isLoading });
+    if (isLoading) return alert("Still loading Auth0...");
+    if (!isAuthenticated) {
+      console.warn("User not authenticated, showing alert");
+      return alert("Please login first to create groups");
+    }
     if (!newGroupName) return alert("Enter group name");
+
     try {
+      console.log("Fetching token...");
       const token = await getAccessTokenSilently();
-      const response = await axios.post(`${API_BASE}/groups`, {
-        name: newGroupName, budget: parseFloat(newGroupBudget || "0"), budgetCurrency: "INR"
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      console.log("Token obtained, posting to:", `${API_BASE}/groups`);
+
+      const payload = {
+        name: newGroupName,
+        budget: parseFloat(newGroupBudget || "0"),
+        budgetCurrency: "INR"
+      };
+      console.log("Payload:", payload);
+
+      const response = await axios.post(`${API_BASE}/groups`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      console.log("Success response:", response.data);
       setGroups([...groups, response.data]);
       setNewGroupName(""); setNewGroupBudget("");
       alert("Group created successfully!");
     } catch (e: any) {
-      console.error(e);
-      alert(`Failed to create group: ${e.response?.data?.error || e.message}`);
+      console.error("Create Group Error:", e);
+      const msg = e.response?.data?.error || e.response?.data?.details || e.message;
+      alert(`Failed to create group: ${msg}`);
+      if (e.response?.status === 401) alert("Hint: Check if the backend AUTH0_AUDIENCE matches the frontend VITE_AUTH0_AUDIENCE");
     }
   };
 
@@ -264,7 +305,11 @@ function App() {
   return (
     <div className="app-border-pane" onContextMenu={(e) => e.preventDefault()}>
       <div className="header-bar">
-        <div className="brand-title">💸 Expense Splitter Pro</div>
+        <div className="brand-title">💸 Expense Splitter Pro
+          <span style={{ fontSize: '10px', color: backendStatus === 'connected' ? 'green' : 'red', marginLeft: '10px' }}>
+            ● {backendStatus}
+          </span>
+        </div>
         <div className="header-tools">
           <button className="fx-button" onClick={() => setIsDark(!isDark)}>{isDark ? "☀️" : "🌙"}</button>
           {isAuthenticated ? <button className="fx-button" onClick={() => logout()}>Logout</button> : <button className="fx-button accent" onClick={() => loginWithRedirect()}>Login</button>}
