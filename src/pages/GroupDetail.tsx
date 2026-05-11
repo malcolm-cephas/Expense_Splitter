@@ -35,8 +35,10 @@ import { useStatistics } from '@/hooks/useStatistics';
 const GroupDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { group, isLoading: isGroupLoading } = useGroupDetail(id!);
-  const { expenses, isLoading: isExpensesLoading } = useExpenses(id!);
+  const { group, isLoading: isGroupLoading, addMember } = useGroupDetail(id!);
+  const { expenses, isLoading: isExpensesLoading, addExpense } = useExpenses(id!);
+  const { settlements, isLoading: isSettlementsLoading, settleUp } = useSettlements(id!);
+  const { statistics, isLoading: isStatisticsLoading } = useStatistics(id!);
 
   if (isGroupLoading) {
     return (
@@ -68,7 +70,7 @@ const GroupDetail: React.FC = () => {
         </Button>
         <div className="flex items-center gap-2">
           <InviteMemberModal 
-            onInvite={useGroupDetail(id!).addMember}
+            onInvite={addMember}
             trigger={
               <Button variant="outline" size="sm" className="border-white/10 text-gray-400">
                 <Share2 className="w-4 h-4 mr-2" />
@@ -149,7 +151,7 @@ const GroupDetail: React.FC = () => {
               <AddExpenseModal 
                 members={group.members} 
                 baseCurrency={group.budgetCurrency}
-                onAdd={useExpenses(id!).addExpense}
+                onAdd={addExpense}
                 trigger={
                   <Button className="btn-primary shadow-lg shadow-primary/20">
                     <Plus className="w-4 h-4 mr-2" />
@@ -162,28 +164,28 @@ const GroupDetail: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="members" className="outline-none">
-             <GroupMemberList 
-               members={group.members} 
-               currency={group.budgetCurrency} 
-               onInvite={useGroupDetail(id!).addMember}
-             />
+              <GroupMemberList 
+                members={group.members} 
+                currency={group.budgetCurrency} 
+                onInvite={addMember}
+              />
           </TabsContent>
           
           <TabsContent value="statistics" className="outline-none">
-             <StatisticsView 
-               statistics={useStatistics(id!).statistics} 
-               isLoading={useStatistics(id!).isLoading} 
-               currency={group.budgetCurrency} 
-             />
+              <StatisticsView 
+                statistics={statistics} 
+                isLoading={isStatisticsLoading} 
+                currency={group.budgetCurrency} 
+              />
           </TabsContent>
           
           <TabsContent value="settle" className="outline-none">
-             <SettlementList 
-               settlements={useSettlements(id!).settlements} 
-               members={group.members} 
-               isLoading={useSettlements(id!).isLoading} 
-               onSettle={useSettlements(id!).settleUp}
-             />
+              <SettlementList 
+                settlements={settlements} 
+                members={group.members} 
+                isLoading={isSettlementsLoading} 
+                onSettle={settleUp}
+              />
           </TabsContent>
         </div>
       </Tabs>
