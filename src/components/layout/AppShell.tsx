@@ -8,7 +8,8 @@ import {
   Menu, 
   X,
   CreditCard,
-  History
+  History,
+  ExternalLink
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -107,7 +108,15 @@ const TopBar = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
       </Button>
       <div className="flex-1" />
       <div className="flex items-center gap-4">
-        {/* Notifications or Search could go here */}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="border-white/10 text-gray-400 hover:text-white hover:bg-white/5"
+          onClick={() => window.open('https://github.com/malcolm-cephas/Expense_Splitter', '_blank')}
+        >
+          <ExternalLink className="w-4 h-4 mr-2" />
+          GitHub
+        </Button>
       </div>
     </header>
   );
