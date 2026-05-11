@@ -21,9 +21,10 @@ interface GroupMemberListProps {
   members: GroupMember[];
   currency: string;
   onInvite: (email: string) => Promise<any>;
+  onRemove?: (userId: string) => Promise<any>;
 }
 
-export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, currency, onInvite }) => {
+export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, currency, onInvite, onRemove }) => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -80,7 +81,12 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
                     />
                     <DropdownMenuContent align="end" className="glass-card bg-slate-900 border-white/10">
                       <DropdownMenuItem className="focus:bg-white/10">View Statistics</DropdownMenuItem>
-                      <DropdownMenuItem className="focus:bg-white/10 text-red-400 focus:text-red-400">Remove from Group</DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="focus:bg-white/10 text-red-400 focus:text-red-400"
+                        onClick={() => onRemove?.(member.userId._id)}
+                      >
+                        Remove from Group
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

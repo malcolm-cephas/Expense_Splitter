@@ -17,8 +17,10 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 import { InviteMemberModal } from '@/components/groups/InviteMemberModal';
 import { useGroupDetail } from '@/hooks/useGroupDetail';
 import { useExpenses } from '@/hooks/useExpenses';
@@ -96,9 +98,37 @@ const GroupDetail: React.FC = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" size="icon" className="border-white/10 text-gray-400">
-            <Settings className="w-4 h-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger 
+              render={
+                <Button variant="outline" size="icon" className="border-white/10 text-gray-400">
+                  <Settings className="w-4 h-4" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="glass-card bg-slate-900 border-white/10 text-white">
+              <DropdownMenuItem className="focus:bg-white/10" onClick={() => toast.info('Edit functionality coming soon!')}>
+                Edit Group Details
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-white/10" />
+              <DropdownMenuItem 
+                className="focus:bg-white/10 text-red-400 focus:text-red-400"
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to delete this group? This cannot be undone.')) {
+                    try {
+                      await deleteGroup();
+                      toast.success('Group deleted');
+                      navigate('/');
+                    } catch (err) {
+                      toast.error('Failed to delete group');
+                    }
+                  }
+                }}
+              >
+                Delete Group
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -159,7 +189,7 @@ const GroupDetail: React.FC = () => {
               }
             />
           </div>
-          <ExpenseList expenses={expenses} isLoading={isExpensesLoading} />
+          <ExpenseList expenses={expenses} isLoading={isExpensesLoading} onRemove={deleteExpense} />
         </TabsContent>
         
         <TabsContent value="members" className="outline-none mt-6">
@@ -167,6 +197,7 @@ const GroupDetail: React.FC = () => {
               members={group.members} 
               currency={group.budgetCurrency} 
               onInvite={addMember}
+              onRemove={removeMember}
             />
         </TabsContent>
         

@@ -7,9 +7,10 @@ import { Receipt } from 'lucide-react';
 interface ExpenseListProps {
   expenses: Expense[];
   isLoading: boolean;
+  onRemove?: (id: string) => Promise<void>;
 }
 
-export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, isLoading }) => {
+export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, isLoading, onRemove }) => {
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -35,7 +36,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, isLoading })
   return (
     <div className="space-y-4">
       {expenses.map(expense => (
-        <ExpenseCard key={expense._id} expense={expense} />
+        <ExpenseCard key={expense._id} expense={expense} onRemove={onRemove} />
       ))}
     </div>
   );

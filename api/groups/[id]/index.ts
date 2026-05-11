@@ -64,9 +64,27 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
       console.error(error);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
-  } else {
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  if (req.method === 'PUT') {
+    try {
+      const updatedGroup = await Group.findByIdAndUpdate(id, req.body, { new: true });
+      return res.status(200).json({ data: updatedGroup });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to update group' });
+    }
   }
+
+  if (req.method === 'DELETE') {
+    try {
+      await Group.findByIdAndDelete(id);
+      // Also delete all expenses for this group
+      await Expense.deleteMany({ groupId: id });
+      return res.status(200).json({ message: 'Group and associated expenses deleted' });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to delete group' });
+    }
+  }
+
+  return res.status(405).end(`Method ${req.method} Not Allowed`);
 }
 
 export default withAuth(handler);

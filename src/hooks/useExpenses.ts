@@ -51,9 +51,36 @@ export const useExpenses = (groupId: string) => {
     },
   });
 
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async (expenseId: string) => {
+      await api.delete(`/groups/${groupId}/expenses/${expenseId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['statistics', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['settlements', groupId] });
+    },
+  });
+
+  const updateExpenseMutation = useMutation({
+    mutationFn: async ({ expenseId, data }: { expenseId: string; data: Partial<Expense> }) => {
+      const response = await api.put(`/groups/${groupId}/expenses/${expenseId}`, data);
+      return response.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['statistics', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['settlements', groupId] });
+    },
+  });
+
   return {
     expenses: expensesQuery.data || [],
     isLoading: expensesQuery.isLoading,
     addExpense: addExpenseMutation.mutateAsync,
+    deleteExpense: deleteExpenseMutation.mutateAsync,
+    updateExpense: updateExpenseMutation.mutateAsync,
   };
 };

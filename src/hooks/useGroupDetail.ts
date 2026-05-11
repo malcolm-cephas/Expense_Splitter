@@ -41,9 +41,41 @@ export const useGroupDetail = (groupId: string) => {
     },
   });
 
+  const removeMemberMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await api.delete(`/groups/${groupId}/members/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+    },
+  });
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete(`/groups/${groupId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+
+  const updateGroupMutation = useMutation({
+    mutationFn: async (data: Partial<Group>) => {
+      const response = await api.put(`/groups/${groupId}`, data);
+      return response.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+
   return {
     group: groupQuery.data,
     isLoading: groupQuery.isLoading,
     addMember: addMemberMutation.mutateAsync,
+    removeMember: removeMemberMutation.mutateAsync,
+    deleteGroup: deleteGroupMutation.mutateAsync,
+    updateGroup: updateGroupMutation.mutateAsync,
   };
 };

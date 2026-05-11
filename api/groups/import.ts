@@ -14,7 +14,9 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   }
 
   try {
-    const { group, expenses } = req.body;
+    const data = req.body;
+    const groupData = data.group || data;
+    const expensesData = data.expenses || [];
     
     // Find the internal user ID
     const user = await User.findOne({ auth0Id });
@@ -24,18 +26,18 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
 
     // 1. Create the Group
     const newGroup = await Group.create({
-      name: group?.name || 'Imported Group',
-      description: group?.description || 'Imported from JSON',
-      budget: group?.budget || '0',
-      budgetCurrency: group?.budgetCurrency || 'USD',
-      familyGroupingEnabled: group?.familyGroupingEnabled || false,
+      name: groupData.name || 'Imported Group',
+      description: groupData.description || 'Imported from JSON',
+      budget: groupData.budget || '0',
+      budgetCurrency: groupData.budgetCurrency || 'INR',
+      familyGroupingEnabled: groupData.familyGroupingEnabled || false,
       members: [{ userId: user._id, role: 'admin' }],
       createdBy: user._id,
     });
 
     // 2. Create Expenses
-    if (expenses && Array.isArray(expenses)) {
-      const expensesToCreate = expenses.map((exp: any) => {
+    if (expensesData && Array.isArray(expensesData)) {
+      const expensesToCreate = expensesData.map((exp: any) => {
         const amount = (exp.amount || '0').toString();
         
         // Handle date array format [2026, 3, 21]
@@ -51,7 +53,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
           groupId: newGroup._id,
           description: exp.description || 'Imported Expense',
           amount: amount,
-          currency: exp.currency || group?.budgetCurrency || 'INR',
+          currency: exp.currency || groupData.budgetCurrency || 'INR',
           splitType: (exp.splitType || 'equal').toLowerCase(),
           category: exp.category || 'General',
           expenseDate: expenseDate,

@@ -3,15 +3,24 @@ import {
   Calendar, 
   ChevronRight, 
   Users,
-  CreditCard
+  CreditCard,
+  Trash2
 } from 'lucide-react';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import type { Expense } from '@/hooks/useExpenses';
 import { formatCurrency } from '@/lib/currency';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
-export const ExpenseCard: FC<{ expense: Expense }> = ({ expense }) => {
+interface ExpenseCardProps {
+  expense: Expense;
+  onRemove?: (id: string) => Promise<void>;
+}
+
+export const ExpenseCard: FC<ExpenseCardProps> = ({ expense, onRemove }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getCategoryIcon = (category: string) => {
@@ -97,6 +106,27 @@ export const ExpenseCard: FC<{ expense: Expense }> = ({ expense }) => {
                     ))}
                   </div>
                 </div>
+             </div>
+             <div className="mt-6 pt-4 border-t border-white/5 flex justify-end">
+               <Button 
+                 variant="ghost" 
+                 size="sm" 
+                 className="text-red-400 hover:text-red-300 hover:bg-red-400/10 h-8"
+                 onClick={async (e) => {
+                   e.stopPropagation();
+                   if (window.confirm('Are you sure you want to delete this expense?')) {
+                     try {
+                       await onRemove?.(expense._id);
+                       toast.success('Expense deleted');
+                     } catch (err) {
+                       toast.error('Failed to delete expense');
+                     }
+                   }
+                 }}
+               >
+                 <Trash2 className="w-3.5 h-3.5 mr-2" />
+                 Delete Expense
+               </Button>
              </div>
           </div>
         )}
