@@ -68,18 +68,20 @@ const Sidebar = ({ isOpen, toggle }: { isOpen: boolean; toggle: () => void }) =>
 
       <div className="p-4 border-t border-white/10">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="w-full flex items-center justify-start gap-3 p-2 hover:bg-white/5 h-auto">
-              <Avatar className="w-9 h-9 border border-white/20">
-                <AvatarImage src={user?.picture} />
-                <AvatarFallback>{user?.name?.[0]}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-              </div>
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger 
+            render={
+              <Button variant="ghost" className="w-full flex items-center justify-start gap-3 p-2 hover:bg-white/5 h-auto">
+                <Avatar className="w-9 h-9 border border-white/20">
+                  <AvatarImage src={user?.picture} />
+                  <AvatarFallback>{user?.name?.[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium text-white truncate">{user?.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                </div>
+              </Button>
+            }
+          />
           <DropdownMenuContent align="end" className="w-56 glass-card bg-slate-900/95 border-white/10">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-white/10" />

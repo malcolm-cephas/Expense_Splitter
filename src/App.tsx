@@ -1,6 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import Dashboard from './pages/Dashboard';
 import GroupDetail from './pages/GroupDetail';

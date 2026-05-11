@@ -77,12 +77,14 @@ const GroupDetail: React.FC = () => {
             }
           />
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="border-white/10 text-gray-400">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger 
+              render={
+                <Button variant="outline" size="sm" className="border-white/10 text-gray-400">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              }
+            />
             <DropdownMenuContent className="glass-card bg-slate-900 border-white/10 text-white">
               <DropdownMenuItem className="focus:bg-white/10" onClick={() => exportData('csv')}>
                 Download CSV

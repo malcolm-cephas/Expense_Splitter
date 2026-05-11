@@ -1,3 +1,4 @@
+import { useState, type FC } from 'react';
 import { 
   Calendar, 
   ChevronRight, 
@@ -10,8 +11,8 @@ import type { Expense } from '@/hooks/useExpenses';
 import { formatCurrency } from '@/lib/currency';
 import { format } from 'date-fns';
 
-export const ExpenseCard: React.FC<{ expense: Expense }> = ({ expense }) => {
-  const [isExpanded, setIsExpanded] = React.useState(false);
+export const ExpenseCard: FC<{ expense: Expense }> = ({ expense }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const getCategoryIcon = (category: string) => {
     switch (category.toLowerCase()) {

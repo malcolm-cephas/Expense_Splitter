@@ -49,14 +49,14 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
+      <DialogTrigger 
+        render={(trigger as React.ReactElement) || (
           <Button variant="outline" size="sm" className="border-white/10 text-primary bg-primary/5">
             <UserPlus className="w-4 h-4 mr-2" />
             Invite Member
           </Button>
         )}
-      </DialogTrigger>
+      />
       <DialogContent className="sm:max-w-[425px] glass-card bg-slate-900 border-white/10 text-white">
         <form onSubmit={handleSubmit}>
           <DialogHeader>

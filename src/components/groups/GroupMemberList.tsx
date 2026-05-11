@@ -71,11 +71,13 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
                     </p>
                   </div>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-gray-500 hover:text-white">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
+                    <DropdownMenuTrigger 
+                      render={
+                        <Button variant="ghost" size="icon" className="text-gray-500 hover:text-white">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      }
+                    />
                     <DropdownMenuContent align="end" className="glass-card bg-slate-900 border-white/10">
                       <DropdownMenuItem className="focus:bg-white/10">View Statistics</DropdownMenuItem>
                       <DropdownMenuItem className="focus:bg-white/10 text-red-400 focus:text-red-400">Remove from Group</DropdownMenuItem>

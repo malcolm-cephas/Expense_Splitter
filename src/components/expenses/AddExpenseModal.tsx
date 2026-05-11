@@ -131,14 +131,14 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
+      <DialogTrigger 
+        render={(trigger as React.ReactElement) || (
           <Button className="btn-primary">
             <Plus className="w-4 h-4 mr-2" />
             Add Expense
           </Button>
         )}
-      </DialogTrigger>
+      />
       <DialogContent className="max-w-2xl glass-card bg-slate-900/95 border-white/10 text-white overflow-hidden flex flex-col max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold flex items-center gap-2">
@@ -182,7 +182,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <div className="space-y-2">
                 <Label>Category</Label>
-                <Select value={category} onValueChange={setCategory}>
+                <Select value={category} onValueChange={(v) => setCategory(v || 'Other')}>
                   <SelectTrigger className="bg-white/5 border-white/10">
                     <SelectValue />
                   </SelectTrigger>
@@ -221,7 +221,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
               <div className="space-y-2">
                 {payers.map((payer, idx) => (
                   <div key={idx} className="flex gap-2 items-center">
-                    <Select value={payer.userId} onValueChange={(v: string) => updatePayer(idx, 'userId', v)}>
+                    <Select value={payer.userId} onValueChange={(v: string | null) => updatePayer(idx, 'userId', v || '')}>
                       <SelectTrigger className="flex-1 bg-white/5 border-white/10">
                         <SelectValue />
                       </SelectTrigger>
