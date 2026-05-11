@@ -6,6 +6,7 @@ import { useGroups } from '@/hooks/useGroups';
 import { GroupCard } from '@/components/groups/GroupCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
+import { ImportModal } from '@/components/groups/ImportModal';
 
 const Dashboard: React.FC = () => {
   const { groups, isLoading } = useGroups();
@@ -22,7 +23,10 @@ const Dashboard: React.FC = () => {
           <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
           <p className="text-gray-400 mt-1">Manage your shared expenses and groups.</p>
         </div>
-        <CreateGroupModal />
+        <div className="flex items-center gap-2">
+          <ImportModal />
+          <CreateGroupModal />
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between glass-card p-4 rounded-xl">

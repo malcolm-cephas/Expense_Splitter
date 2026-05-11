@@ -126,68 +126,66 @@ const GroupDetail: React.FC = () => {
 
       <Tabs defaultValue="expenses" className="w-full">
         <TabsList className="grid w-full grid-cols-4 bg-white/5 border border-white/10 p-1 h-14 rounded-xl">
-          <TabsTrigger value="expenses" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-background-dark flex items-center gap-2 h-full">
+          <TabsTrigger value="expenses" className="rounded-lg data-active:bg-primary data-active:text-background-dark flex items-center gap-2 h-full">
             <Receipt className="w-4 h-4" />
             <span className="hidden sm:inline">Expenses</span>
           </TabsTrigger>
-          <TabsTrigger value="members" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-background-dark flex items-center gap-2 h-full">
+          <TabsTrigger value="members" className="rounded-lg data-active:bg-primary data-active:text-background-dark flex items-center gap-2 h-full">
             <Users className="w-4 h-4" />
             <span className="hidden sm:inline">Members</span>
           </TabsTrigger>
-          <TabsTrigger value="statistics" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-background-dark flex items-center gap-2 h-full">
+          <TabsTrigger value="statistics" className="rounded-lg data-active:bg-primary data-active:text-background-dark flex items-center gap-2 h-full">
             <BarChart3 className="w-4 h-4" />
             <span className="hidden sm:inline">Statistics</span>
           </TabsTrigger>
-          <TabsTrigger value="settle" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-background-dark flex items-center gap-2 h-full">
+          <TabsTrigger value="settle" className="rounded-lg data-active:bg-primary data-active:text-background-dark flex items-center gap-2 h-full">
             <CheckCircle2 className="w-4 h-4" />
             <span className="hidden sm:inline">Settle Up</span>
           </TabsTrigger>
         </TabsList>
 
-        <div className="mt-6">
-          <TabsContent value="expenses" className="space-y-4 outline-none">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-white">Recent Expenses</h2>
-              <AddExpenseModal 
-                members={group.members} 
-                baseCurrency={group.budgetCurrency}
-                onAdd={addExpense}
-                trigger={
-                  <Button className="btn-primary shadow-lg shadow-primary/20">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Expense
-                  </Button>
-                }
-              />
-            </div>
-            <ExpenseList expenses={expenses} isLoading={isExpensesLoading} />
-          </TabsContent>
-          
-          <TabsContent value="members" className="outline-none">
-              <GroupMemberList 
-                members={group.members} 
-                currency={group.budgetCurrency} 
-                onInvite={addMember}
-              />
-          </TabsContent>
-          
-          <TabsContent value="statistics" className="outline-none">
-              <StatisticsView 
-                statistics={statistics} 
-                isLoading={isStatisticsLoading} 
-                currency={group.budgetCurrency} 
-              />
-          </TabsContent>
-          
-          <TabsContent value="settle" className="outline-none">
-              <SettlementList 
-                settlements={settlements} 
-                members={group.members} 
-                isLoading={isSettlementsLoading} 
-                onSettle={settleUp}
-              />
-          </TabsContent>
-        </div>
+        <TabsContent value="expenses" className="space-y-4 outline-none mt-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-white">Recent Expenses</h2>
+            <AddExpenseModal 
+              members={group.members} 
+              baseCurrency={group.budgetCurrency}
+              onAdd={addExpense}
+              trigger={
+                <Button className="btn-primary shadow-lg shadow-primary/20">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Expense
+                </Button>
+              }
+            />
+          </div>
+          <ExpenseList expenses={expenses} isLoading={isExpensesLoading} />
+        </TabsContent>
+        
+        <TabsContent value="members" className="outline-none mt-6">
+            <GroupMemberList 
+              members={group.members} 
+              currency={group.budgetCurrency} 
+              onInvite={addMember}
+            />
+        </TabsContent>
+        
+        <TabsContent value="statistics" className="outline-none mt-6">
+            <StatisticsView 
+              statistics={statistics} 
+              isLoading={isStatisticsLoading} 
+              currency={group.budgetCurrency} 
+            />
+        </TabsContent>
+        
+        <TabsContent value="settle" className="outline-none mt-6">
+            <SettlementList 
+              settlements={settlements} 
+              members={group.members} 
+              isLoading={isSettlementsLoading} 
+              onSettle={settleUp}
+            />
+        </TabsContent>
       </Tabs>
     </div>
   );

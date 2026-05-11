@@ -54,7 +54,7 @@ export const CreateGroupModal: React.FC = () => {
     setName('');
     setDescription('');
     setBudget('');
-    setCurrency('USD');
+    setCurrency('INR');
     setFamilyGrouping(false);
   };
 
