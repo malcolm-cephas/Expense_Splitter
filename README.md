@@ -1,59 +1,73 @@
-# 💸 Expense Splitter Pro: Full-Stack TypeScript Platform
+# React + TypeScript + Vite
 
-[![Stack: TypeScript](https://img.shields.io/badge/Stack-TypeScript-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Frontend: React](https://img.shields.io/badge/Frontend-React-61dafb?logo=react&logoColor=white)](https://react.dev/)
-[![Backend: Express](https://img.shields.io/badge/Backend-Express-000000?logo=express&logoColor=white)](https://expressjs.com/)
-[![Database: Prisma](https://img.shields.io/badge/Database-Prisma-2d3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
-[![Security: Auth0](https://img.shields.io/badge/Security-Auth0-eb5424?logo=auth0&logoColor=white)](https://auth0.com/)
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-**Expense Splitter Pro** is a world-class financial platform designed for high-performance group collaboration. Now powered by a **Full-Stack TypeScript** architecture for maximum velocity and type safety.
+Currently, two official plugins are available:
 
----
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## 🚀 Key Technical Innovations
+## React Compiler
 
-### 📉 Smart Settle Algorithm
-Our greedy optimization engine reduces complex group "webs of debt" into the minimum number of transactions. Ported from Java to TypeScript, it maintains the same high-performance logic with modern async patterns.
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-### 🛡️ End-to-End Type Safety
-Using TypeScript across both the Frontend (React/Vite) and Backend (Express/Prisma), we ensure data integrity from the database layer all the way to the user's screen.
+## Expanding the ESLint configuration
 
-### 🍱 High-Aesthetics UI
-- **Premium UX**: Built with React + Vite using Glassmorphic panels and a curated deep charcoal design system.
-- **Micro-animations**: Smooth, interactive transitions powered by `framer-motion`.
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
----
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-## 🛠️ Tech Stack
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
 
-- **Frontend**: React 19, Vite, TypeScript, Auth0 SDK, Framer Motion, Axios.
-- **Backend**: Node.js, Express, TypeScript, Prisma ORM, Auth0 Resource Server.
-- **Database**: SQLite (Local Dev) / PostgreSQL (Production ready with Prisma).
-
----
-
-## 🚀 Getting Started
-
-### 1. Prerequisites
-Ensure you have **Node.js 18+** installed.
-
-### 2. Backend Setup (API)
-```bash
-cd backend
-npm install
-npx prisma migrate dev --name init
-npm run dev
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-### 3. Frontend Setup (UI)
-```bash
-cd frontend
-npm install
-npm run dev
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-
----
-
-## 👨‍💻 Author
-*Malcolm Cephas*  
-- GitHub: [@malcolm-cephas](https://github.com/malcolm-cephas)
