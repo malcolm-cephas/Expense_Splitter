@@ -123,7 +123,7 @@ export const CreateGroupModal: React.FC = () => {
                 type="checkbox"
                 id="familyGrouping"
                 checked={familyGrouping}
-                onChange={(e) => setFamilyGrouping(e.target.checked)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFamilyGrouping(e.target.checked)}
                 className="rounded border-white/10 bg-white/5 text-primary focus:ring-primary/50"
               />
               <Label htmlFor="familyGrouping" className="text-sm text-gray-300">Enable Family Grouping</Label>
