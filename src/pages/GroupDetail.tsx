@@ -37,8 +37,8 @@ import { useStatistics } from '@/hooks/useStatistics';
 const GroupDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { group, isLoading: isGroupLoading, addMember } = useGroupDetail(id!);
-  const { expenses, isLoading: isExpensesLoading, addExpense } = useExpenses(id!);
+  const { group, isLoading: isGroupLoading, addMember, removeMember, deleteGroup } = useGroupDetail(id!);
+  const { expenses, isLoading: isExpensesLoading, addExpense, deleteExpense } = useExpenses(id!);
   const { settlements, isLoading: isSettlementsLoading, settleUp } = useSettlements(id!);
   const { statistics, isLoading: isStatisticsLoading } = useStatistics(id!);
 
