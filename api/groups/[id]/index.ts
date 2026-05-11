@@ -64,6 +64,8 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
       console.error(error);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
+  }
+
   if (req.method === 'PUT') {
     try {
       const updatedGroup = await Group.findByIdAndUpdate(id, req.body, { new: true });
