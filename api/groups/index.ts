@@ -1,8 +1,9 @@
 import { NextApiResponse } from 'next';
-import connectDB from '../_db';
-import Group from '../_models/Group';
-import Expense from '../_models/Expense';
-import { withAuth, AuthenticatedRequest } from '../_middleware';
+import connectDB from '../_db.js';
+import Group from '../_models/Group.js';
+import Expense from '../_models/Expense.js';
+import { withAuth, AuthenticatedRequest } from '../_middleware.js';
+import User from '../_models/User.js';
 import mongoose from 'mongoose';
 
 async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
@@ -10,7 +11,6 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   const auth0Id = req.user!.sub;
 
   // Find the internal user ID first
-  const User = mongoose.model('User');
   const user = await User.findOne({ auth0Id });
   if (!user) {
     return res.status(404).json({ error: 'User not found' });

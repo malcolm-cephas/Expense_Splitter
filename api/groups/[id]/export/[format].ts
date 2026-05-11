@@ -1,9 +1,9 @@
 import { NextApiResponse } from 'next';
-import connectDB from '../../../../_db';
-import Group from '../../../../_models/Group';
-import Expense from '../../../../_models/Expense';
-import User from '../../../../_models/User';
-import { withAuth, AuthenticatedRequest } from '../../../../_middleware';
+import connectDB from '../../../_db.js';
+import Group from '../../../_models/Group.js';
+import Expense from '../../../_models/Expense.js';
+import User from '../../../_models/User.js';
+import { withAuth, AuthenticatedRequest } from '../../../_middleware.js';
 
 async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   await connectDB();
@@ -56,7 +56,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
         ];
       });
 
-      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const csvContent = [headers.join(','), ...rows.map((r: any[]) => r.join(','))].join('\n');
 
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename=expense_splitter_${groupId}.csv`);

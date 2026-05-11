@@ -19,7 +19,7 @@ const GroupSchema: Schema = new Schema({
   description: { type: String },
   budget: { type: String },
   budgetCurrency: { type: String, required: true, default: 'USD' },
-  familyGroupingEnabled: { type: boolean, default: false },
+  familyGroupingEnabled: { type: Boolean, default: false },
   members: [
     {
       userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },

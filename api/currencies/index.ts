@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import connectDB from '../_db';
-import CurrencyCache from '../_models/CurrencyCache';
+import connectDB from '../_db.js';
+import CurrencyCache from '../_models/CurrencyCache.js';
 import axios from 'axios';
 
 const CURRENCY_API_URL = 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json';

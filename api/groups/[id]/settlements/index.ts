@@ -1,11 +1,11 @@
 import { NextApiResponse } from 'next';
-import connectDB from '../../../_db';
-import Group from '../../../_models/Group';
-import Expense from '../../../_models/Expense';
-import User from '../../../_models/User';
-import { withAuth, AuthenticatedRequest } from '../../../_middleware';
-import { calculateSettlements, MemberBalance } from '../../../_logic/settlements';
-import Decimal from 'decimal.js';
+import connectDB from '../../../_db.js';
+import Group from '../../../_models/Group.js';
+import Expense from '../../../_models/Expense.js';
+import User from '../../../_models/User.js';
+import { withAuth, AuthenticatedRequest } from '../../../_middleware.js';
+import { calculateSettlements, MemberBalance } from '../../../_logic/settlements.js';
+import { Decimal } from 'decimal.js';
 
 async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   await connectDB();

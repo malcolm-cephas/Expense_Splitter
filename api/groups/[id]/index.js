@@ -1,0 +1,63 @@
+import connectDB from '../../_db';
+import Group from '../../_models/Group';
+import Expense from '../../_models/Expense';
+import User from '../../_models/User';
+import { withAuth } from '../../_middleware';
+async function handler(req, res) {
+    await connectDB();
+    const { id } = req.query;
+    const auth0Id = req.user.sub;
+    const currentUser = await User.findOne({ auth0Id });
+    if (!currentUser)
+        return res.status(404).json({ error: 'User not found' });
+    if (req.method === 'GET') {
+        try {
+            const group = await Group.findById(id).populate('members.userId', 'name email picture familyName').lean();
+            if (!group)
+                return res.status(404).json({ error: 'Group not found' });
+            // Check if user is member
+            const isMember = group.members.some((m) => m.userId._id.toString() === currentUser._id.toString());
+            if (!isMember)
+                return res.status(403).json({ error: 'Forbidden' });
+            // Calculate total expenses and member balances
+            const expenses = await Expense.find({ groupId: id });
+            let totalExpenses = 0;
+            const memberBalances = {};
+            group.members.forEach((m) => {
+                memberBalances[m.userId._id.toString()] = 0;
+            });
+            expenses.forEach((exp) => {
+                totalExpenses += parseFloat(exp.amount);
+                // Subtract what they owe
+                exp.splits.forEach((s) => {
+                    if (memberBalances[s.userId.toString()] !== undefined) {
+                        memberBalances[s.userId.toString()] -= parseFloat(s.owedAmount);
+                    }
+                });
+                // Add what they paid
+                exp.payers.forEach((p) => {
+                    if (memberBalances[p.userId.toString()] !== undefined) {
+                        memberBalances[p.userId.toString()] += parseFloat(p.amount);
+                    }
+                });
+            });
+            const groupWithStats = {
+                ...group,
+                totalExpenses: totalExpenses.toString(),
+                members: group.members.map((m) => ({
+                    ...m,
+                    balance: memberBalances[m.userId._id.toString()].toString(),
+                })),
+            };
+            return res.status(200).json({ data: groupWithStats });
+        }
+        catch (error) {
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+    else {
+        return res.status(405).end(`Method ${req.method} Not Allowed`);
+    }
+}
+export default withAuth(handler);
