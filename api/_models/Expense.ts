@@ -52,4 +52,7 @@ const ExpenseSchema: Schema = new Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+ExpenseSchema.index({ groupId: 1 });
+ExpenseSchema.index({ createdBy: 1 });
+
 export default mongoose.models.Expense || mongoose.model<IExpense>('Expense', ExpenseSchema);

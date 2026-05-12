@@ -23,31 +23,50 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
       const isMember = group.members.some((m: any) => m.userId._id.toString() === currentUser._id.toString());
       if (!isMember) return res.status(403).json({ error: 'Forbidden' });
 
-      // Calculate total expenses and member balances
-      const expenses = await Expense.find({ groupId: id });
-      let totalExpenses = 0;
-      const memberBalances: Record<string, number> = {};
+      // High-performance aggregation to calculate total expenses and balances
+      const stats = await Expense.aggregate([
+        { $match: { groupId: new mongoose.Types.ObjectId(id as string) } },
+        {
+          $facet: {
+            totalAmount: [
+              { $group: { _id: null, sum: { $sum: { $toDouble: "$amount" } } } }
+            ],
+            memberBalances: [
+              { $project: { payers: 1, splits: 1 } },
+              { $facet: {
+                paid: [
+                  { $unwind: "$payers" },
+                  { $group: { _id: "$payers.userId", totalPaid: { $sum: { $toDouble: "$payers.amount" } } } }
+                ],
+                owed: [
+                  { $unwind: "$splits" },
+                  { $group: { _id: "$splits.userId", totalOwed: { $sum: { $toDouble: "$splits.owedAmount" } } } }
+                ]
+              }}
+            ]
+          }
+        }
+      ]);
 
+      const totalExpenses = stats[0].totalAmount[0]?.sum || 0;
+      const paidBalances = stats[0].memberBalances[0].paid;
+      const owedBalances = stats[0].memberBalances[0].owed;
+
+      const balanceMap: Record<string, number> = {};
       group.members.forEach((m: any) => {
-        memberBalances[m.userId._id.toString()] = 0;
+        balanceMap[m.userId._id.toString()] = 0;
       });
 
-      expenses.forEach((exp: any) => {
-        totalExpenses += parseFloat(exp.amount);
-        
-        // Subtract what they owe
-        exp.splits.forEach((s: any) => {
-          if (memberBalances[s.userId.toString()] !== undefined) {
-            memberBalances[s.userId.toString()] -= parseFloat(s.owedAmount);
-          }
-        });
+      paidBalances.forEach((p: any) => {
+        if (balanceMap[p._id.toString()] !== undefined) {
+          balanceMap[p._id.toString()] += p.totalPaid;
+        }
+      });
 
-        // Add what they paid
-        exp.payers.forEach((p: any) => {
-          if (memberBalances[p.userId.toString()] !== undefined) {
-            memberBalances[p.userId.toString()] += parseFloat(p.amount);
-          }
-        });
+      owedBalances.forEach((o: any) => {
+        if (balanceMap[o._id.toString()] !== undefined) {
+          balanceMap[o._id.toString()] -= o.totalOwed;
+        }
       });
 
       const groupWithStats = {
@@ -55,13 +74,13 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
         totalExpenses: totalExpenses.toString(),
         members: group.members.map((m: any) => ({
           ...m,
-          balance: memberBalances[m.userId._id.toString()].toString(),
+          balance: (balanceMap[m.userId._id.toString()] || 0).toString(),
         })),
       };
 
       return res.status(200).json({ data: groupWithStats });
     } catch (error) {
-      console.error(error);
+      console.error('Aggregation Error:', error);
       return res.status(500).json({ error: 'Internal Server Error' });
     }
   }
@@ -78,7 +97,6 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   if (req.method === 'DELETE') {
     try {
       await Group.findByIdAndDelete(id);
-      // Also delete all expenses for this group
       await Expense.deleteMany({ groupId: id });
       return res.status(200).json({ message: 'Group and associated expenses deleted' });
     } catch (error) {

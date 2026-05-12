@@ -2,15 +2,14 @@ import { NextApiResponse } from 'next';
 import connectDB from '../_db.js';
 import Group from '../_models/Group.js';
 import Expense from '../_models/Expense.js';
-import { withAuth, AuthenticatedRequest } from '../_middleware.js';
 import User from '../_models/User.js';
-import mongoose from 'mongoose';
+import PendingInvite from '../_models/PendingInvite.js';
+import { withAuth, AuthenticatedRequest } from '../_middleware.js';
 
 async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   await connectDB();
   const auth0Id = req.user!.sub;
 
-  // Find the internal user ID first
   const user = await User.findOne({ auth0Id });
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
@@ -22,32 +21,41 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
         'members.userId': user._id,
       }).lean();
 
-      // For each group, we need to calculate total expenses and user balance
-      const groupsWithStats = await Promise.all(
-        groups.map(async (group: any) => {
-          const expenses = await Expense.find({ groupId: group._id });
+      const groupIds = groups.map(g => g._id);
+      
+      // Bulk fetch all expenses for these groups to avoid N+1 problem
+      const allExpenses = await Expense.find({ groupId: { $in: groupIds } }).lean();
+      
+      // Group expenses by groupId
+      const expensesByGroup = allExpenses.reduce((acc: any, exp: any) => {
+        const gid = exp.groupId.toString();
+        if (!acc[gid]) acc[gid] = [];
+        acc[gid].push(exp);
+        return acc;
+      }, {});
+
+      const groupsWithStats = groups.map((group: any) => {
+        const expenses = expensesByGroup[group._id.toString()] || [];
+        
+        let totalExpenses = 0;
+        let userBalance = 0;
+
+        expenses.forEach((exp: any) => {
+          totalExpenses += parseFloat(exp.amount);
           
-          let totalExpenses = 0;
-          let userBalance = 0;
+          const userOwes = exp.splits.find((s: any) => s.userId.toString() === user._id.toString())?.owedAmount || '0';
+          const userPaid = exp.payers.find((p: any) => p.userId.toString() === user._id.toString())?.amount || '0';
+          
+          userBalance += (parseFloat(userPaid) - parseFloat(userOwes));
+        });
 
-          expenses.forEach((exp: any) => {
-            totalExpenses += parseFloat(exp.amount);
-            
-            // Calculate user's net balance in this expense
-            const userOwes = exp.splits.find((s: any) => s.userId.toString() === user._id.toString())?.owedAmount || '0';
-            const userPaid = exp.payers.find((p: any) => p.userId.toString() === user._id.toString())?.amount || '0';
-            
-            userBalance += (parseFloat(userPaid) - parseFloat(userOwes));
-          });
-
-          return {
-            ...group,
-            memberCount: group.members.length,
-            totalExpenses: totalExpenses.toString(),
-            userBalance: userBalance.toString(),
-          };
-        })
-      );
+        return {
+          ...group,
+          memberCount: group.members.length,
+          totalExpenses: totalExpenses.toString(),
+          userBalance: userBalance.toString(),
+        };
+      });
 
       return res.status(200).json({ data: groupsWithStats });
     } catch (error) {
@@ -55,7 +63,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
       return res.status(500).json({ error: 'Internal Server Error' });
     }
   } else if (req.method === 'POST') {
-    const { name, description, budget, budgetCurrency, familyGroupingEnabled } = req.body;
+    const { name, description, budget, budgetCurrency, familyGroupingEnabled, initialMembers } = req.body;
 
     try {
       const newGroup = await Group.create({
@@ -68,7 +76,29 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
         createdBy: user._id,
       });
 
-      return res.status(201).json({ data: newGroup });
+      // Handle initial members if provided
+      if (initialMembers && Array.isArray(initialMembers)) {
+        for (const email of initialMembers) {
+          if (!email || email === user.email) continue;
+          
+          const targetUser = await User.findOne({ email });
+          if (targetUser) {
+            await Group.findByIdAndUpdate(newGroup._id, {
+              $addToSet: { members: { userId: targetUser._id, role: 'member' } },
+            });
+          } else {
+            await PendingInvite.findOneAndUpdate(
+              { email, groupId: newGroup._id },
+              { email, groupId: newGroup._id, invitedBy: user._id },
+              { upsert: true }
+            );
+          }
+        }
+      }
+
+      // Re-fetch to get updated members
+      const finalGroup = await Group.findById(newGroup._id).lean();
+      return res.status(201).json({ data: finalGroup });
     } catch (error) {
       console.error('Error creating group:', error);
       return res.status(500).json({ error: 'Internal Server Error' });

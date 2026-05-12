@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { InviteMemberModal } from '@/components/groups/InviteMemberModal';
+import { EditGroupModal } from '@/components/groups/EditGroupModal';
 import { useGroupDetail } from '@/hooks/useGroupDetail';
 import { useExpenses } from '@/hooks/useExpenses';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,10 +38,11 @@ import { useStatistics } from '@/hooks/useStatistics';
 const GroupDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { group, isLoading: isGroupLoading, addMember, removeMember, deleteGroup } = useGroupDetail(id!);
+  const { group, isLoading: isGroupLoading, addMember, removeMember, deleteGroup, updateGroup } = useGroupDetail(id!);
   const { expenses, isLoading: isExpensesLoading, addExpense, deleteExpense } = useExpenses(id!);
   const { settlements, isLoading: isSettlementsLoading, settleUp } = useSettlements(id!);
   const { statistics, isLoading: isStatisticsLoading } = useStatistics(id!);
+  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
 
   if (isGroupLoading) {
     return (
@@ -107,7 +109,7 @@ const GroupDetail: React.FC = () => {
               }
             />
             <DropdownMenuContent align="end" className="glass-card bg-slate-900 border-white/10 text-white">
-              <DropdownMenuItem className="focus:bg-white/10" onClick={() => toast.info('Edit functionality coming soon!')}>
+              <DropdownMenuItem className="focus:bg-white/10" onClick={() => setIsEditModalOpen(true)}>
                 Edit Group Details
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-white/10" />
@@ -218,6 +220,13 @@ const GroupDetail: React.FC = () => {
             />
         </TabsContent>
       </Tabs>
+
+      <EditGroupModal 
+        group={group}
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        onUpdate={updateGroup}
+      />
     </div>
   );
 };
