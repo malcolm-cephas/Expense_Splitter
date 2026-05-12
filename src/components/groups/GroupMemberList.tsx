@@ -129,7 +129,7 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-white">{displayName}</h3>
                       {member.role === 'admin' && (
-                        <Shield className="w-3 h-3 text-primary" title="Group Admin" />
+                        <Shield className="w-3 h-3 text-primary" />
                       )}
                     </div>
                     <p className="text-[10px] text-gray-500 font-mono truncate max-w-[150px]">{member.userId.email}</p>
