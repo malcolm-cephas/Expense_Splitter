@@ -130,7 +130,7 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
           const balance = new Decimal(member.balance || '0');
           const isOwed = balance.gt(0);
           const isNeutral = balance.isZero();
-          const displayName = member.userId.name || member.userId.email.split('@')[0] || 'Unknown User';
+          const displayName = member.userId.name || member.userId.email?.split('@')[0] || 'Unknown User';
 
           return (
             <Card key={member.userId._id} className="glass-card hover:border-white/20 transition-all border-white/10">
