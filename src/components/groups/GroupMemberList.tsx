@@ -24,7 +24,7 @@ import Decimal from 'decimal.js';
 interface GroupMemberListProps {
   members: GroupMember[];
   currency: string;
-  onInvite: (email: string) => Promise<any>;
+  onInvite: (data: { name: string; email?: string }) => Promise<any>;
   onRemove?: (userId: string) => Promise<any>;
 }
 
@@ -147,7 +147,9 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
                         <Shield className="w-3 h-3 text-primary" />
                       )}
                     </div>
-                    <p className="text-[10px] text-gray-500 font-mono truncate max-w-[150px]">{member.userId.email}</p>
+                    <p className="text-[10px] text-gray-500 font-mono truncate max-w-[150px]">
+                      {member.userId.email || 'Managed Locally'}
+                    </p>
                     {member.userId.familyName && (
                       <span className="text-[10px] text-primary/70 uppercase tracking-widest mt-1 block font-bold">
                         {member.userId.familyName} Family
