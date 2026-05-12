@@ -11,6 +11,7 @@ export interface Group {
   totalExpenses: string;
   userBalance: string;
   familyGroupingEnabled: boolean;
+  initialMembers?: string[];
 }
 
 export const useGroups = () => {

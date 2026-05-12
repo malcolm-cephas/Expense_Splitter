@@ -31,26 +31,21 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
             totalAmount: [
               { $group: { _id: null, sum: { $sum: { $toDouble: "$amount" } } } }
             ],
-            memberBalances: [
-              { $project: { payers: 1, splits: 1 } },
-              { $facet: {
-                paid: [
-                  { $unwind: "$payers" },
-                  { $group: { _id: "$payers.userId", totalPaid: { $sum: { $toDouble: "$payers.amount" } } } }
-                ],
-                owed: [
-                  { $unwind: "$splits" },
-                  { $group: { _id: "$splits.userId", totalOwed: { $sum: { $toDouble: "$splits.owedAmount" } } } }
-                ]
-              }}
+            paid: [
+              { $unwind: "$payers" },
+              { $group: { _id: "$payers.userId", totalPaid: { $sum: { $toDouble: "$payers.amount" } } } }
+            ],
+            owed: [
+              { $unwind: "$splits" },
+              { $group: { _id: "$splits.userId", totalOwed: { $sum: { $toDouble: "$splits.owedAmount" } } } }
             ]
           }
         }
-      ]);
+      ] as any[]);
 
       const totalExpenses = stats[0].totalAmount[0]?.sum || 0;
-      const paidBalances = stats[0].memberBalances[0].paid;
-      const owedBalances = stats[0].memberBalances[0].owed;
+      const paidBalances = stats[0].paid || [];
+      const owedBalances = stats[0].owed || [];
 
       const balanceMap: Record<string, number> = {};
       group.members.forEach((m: any) => {
