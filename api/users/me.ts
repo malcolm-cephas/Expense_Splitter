@@ -10,6 +10,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
 
   if (req.method === 'POST') {
     const { sub, email, name, family_name } = req.user!;
+    const finalName = name || (email ? email.split('@')[0] : 'User');
 
     try {
       // 1. Upsert the user
@@ -18,7 +19,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
         {
           auth0Id: sub,
           email,
-          name,
+          name: finalName,
           familyName: family_name,
         },
         { upsert: true, new: true }

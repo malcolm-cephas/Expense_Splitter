@@ -152,7 +152,7 @@ export const CreateGroupModal: React.FC = () => {
             </div>
 
             <div className="space-y-3 bg-white/5 p-4 rounded-xl border border-white/5">
-              <Label className="text-xs uppercase tracking-widest text-gray-400">Add Members</Label>
+              <Label className="text-xs uppercase tracking-widest text-gray-400">Add Members (Optional)</Label>
               <div className="flex gap-2">
                 <Input
                   placeholder="friend@example.com"
