@@ -86,8 +86,8 @@ export const ImportModal: React.FC = () => {
         </div>
 
         <DialogFooter className="sm:justify-start">
-          <p className="text-[10px] text-gray-600 uppercase tracking-widest text-center w-full">
-            All imported expenses will be assigned to you as the payer
+          <p className="text-[10px] text-gray-600 uppercase tracking-widest text-center w-full px-4">
+            Supports full member mapping and multi-payer data from SplitPro exports
           </p>
         </DialogFooter>
       </DialogContent>
