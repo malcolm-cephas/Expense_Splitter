@@ -14,28 +14,46 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   if (!currentUser) return res.status(404).json({ error: 'User not found' });
 
   if (req.method === 'POST') {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email is required' });
+    const { name, email } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
 
     try {
-      // 1. Check if user already exists
-      const targetUser = await User.findOne({ email });
+      let targetUserId;
 
-      if (targetUser) {
-        // 2. Add to group members if not already there
-        await Group.findByIdAndUpdate(groupId, {
-          $addToSet: { members: { userId: targetUser._id, role: 'member' } },
-        });
-        return res.status(200).json({ data: { status: 'joined', user: targetUser } });
+      if (email) {
+        // existing logic for email-based invite
+        const targetUser = await User.findOne({ email });
+        if (targetUser) {
+          targetUserId = targetUser._id;
+        } else {
+          // Create pending invite
+          await PendingInvite.findOneAndUpdate(
+            { email, groupId },
+            { email, groupId, invitedBy: currentUser._id },
+            { upsert: true }
+          );
+          // If user doesn't exist, we don't add them to group yet, 
+          // they join via /users/me when they register.
+          return res.status(200).json({ data: { status: 'pending', email } });
+        }
       } else {
-        // 3. Create pending invite
-        await PendingInvite.findOneAndUpdate(
-          { email, groupId },
-          { email, groupId, invitedBy: currentUser._id },
-          { upsert: true }
-        );
-        return res.status(200).json({ data: { status: 'pending', email } });
+        // Create a Ghost User
+        const ghostUser = await User.create({
+          name,
+          isGhost: true,
+          currencyPreference: currentUser.currencyPreference || 'USD'
+        });
+        targetUserId = ghostUser._id;
       }
+
+      if (targetUserId) {
+        await Group.findByIdAndUpdate(groupId, {
+          $addToSet: { members: { userId: targetUserId, role: 'member' } },
+        });
+        return res.status(200).json({ data: { status: 'joined', userId: targetUserId } });
+      }
+
+      return res.status(500).json({ error: 'Failed to add member' });
     } catch (error) {
       console.error(error);
       return res.status(500).json({ error: 'Internal Server Error' });

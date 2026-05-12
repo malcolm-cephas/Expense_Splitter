@@ -5,7 +5,7 @@ export interface GroupMember {
   userId: {
     _id: string;
     name: string;
-    email: string;
+    email?: string;
     picture?: string;
     familyName?: string;
   };
@@ -32,8 +32,8 @@ export const useGroupDetail = (groupId: string) => {
   });
 
   const addMemberMutation = useMutation({
-    mutationFn: async (email: string) => {
-      const response = await api.post(`/groups/${groupId}/members`, { email });
+    mutationFn: async (data: { name: string; email?: string }) => {
+      const response = await api.post(`/groups/${groupId}/members`, data);
       return response.data.data;
     },
     onSuccess: () => {

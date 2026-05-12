@@ -24,27 +24,32 @@ export const CreateGroupModal: React.FC = () => {
   const [familyGrouping, setFamilyGrouping] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  const [memberName, setMemberName] = useState('');
   const [memberEmail, setMemberEmail] = useState('');
-  const [initialMembers, setInitialMembers] = useState<string[]>([]);
+  const [initialMembers, setInitialMembers] = useState<{ name: string; email?: string }[]>([]);
 
   const { createGroup } = useGroups();
 
   const handleAddMember = () => {
-    if (!memberEmail) return;
-    if (!memberEmail.includes('@')) {
+    if (!memberName) {
+      toast.error('Member name is required');
+      return;
+    }
+    if (memberEmail && !memberEmail.includes('@')) {
       toast.error('Invalid email address');
       return;
     }
-    if (initialMembers.includes(memberEmail)) {
-      toast.error('Member already added');
+    if (memberEmail && initialMembers.some(m => m.email === memberEmail)) {
+      toast.error('Member with this email already added');
       return;
     }
-    setInitialMembers([...initialMembers, memberEmail]);
+    setInitialMembers([...initialMembers, { name: memberName, email: memberEmail }]);
+    setMemberName('');
     setMemberEmail('');
   };
 
-  const removeMember = (email: string) => {
-    setInitialMembers(initialMembers.filter(m => m !== email));
+  const removeMember = (index: number) => {
+    setInitialMembers(initialMembers.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,6 +84,7 @@ export const CreateGroupModal: React.FC = () => {
     setCurrency('INR');
     setFamilyGrouping(false);
     setInitialMembers([]);
+    setMemberName('');
     setMemberEmail('');
   };
 
@@ -153,25 +159,34 @@ export const CreateGroupModal: React.FC = () => {
 
             <div className="space-y-3 bg-white/5 p-4 rounded-xl border border-white/5">
               <Label className="text-xs uppercase tracking-widest text-gray-400">Add Members (Optional)</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="friend@example.com"
-                  value={memberEmail}
-                  onChange={(e) => setMemberEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddMember())}
-                  className="bg-white/10 border-white/5 focus:border-primary/30"
-                />
-                <Button type="button" size="icon" onClick={handleAddMember} className="bg-primary/20 text-primary hover:bg-primary hover:text-background-dark shrink-0">
-                  <UserPlus className="w-4 h-4" />
-                </Button>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Name (e.g. John)"
+                    value={memberName}
+                    onChange={(e) => setMemberName(e.target.value)}
+                    className="bg-white/10 border-white/5 focus:border-primary/30 flex-1"
+                  />
+                  <Input
+                    placeholder="Email (Optional)"
+                    value={memberEmail}
+                    onChange={(e) => setMemberEmail(e.target.value)}
+                    className="bg-white/10 border-white/5 focus:border-primary/30 flex-1"
+                  />
+                  <Button type="button" size="icon" onClick={handleAddMember} className="bg-primary/20 text-primary hover:bg-primary hover:text-background-dark shrink-0">
+                    <UserPlus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-[10px] text-gray-500 italic">Adding a name only creates a managed local member.</p>
               </div>
               
               {initialMembers.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-2">
-                  {initialMembers.map(email => (
-                    <div key={email} className="flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full border border-white/10 text-xs">
-                      <span className="truncate max-w-[150px]">{email}</span>
-                      <button type="button" onClick={() => removeMember(email)} className="text-gray-500 hover:text-red-400 transition-colors">
+                  {initialMembers.map((member, index) => (
+                    <div key={index} className="flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full border border-white/10 text-xs">
+                      <span className="font-bold">{member.name}</span>
+                      {member.email && <span className="text-gray-500 ml-1 truncate max-w-[100px]">({member.email})</span>}
+                      <button type="button" onClick={() => removeMember(index)} className="text-gray-500 hover:text-red-400 transition-colors ml-1">
                         <X className="w-3 h-3" />
                       </button>
                     </div>

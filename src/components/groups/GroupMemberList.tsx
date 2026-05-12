@@ -29,25 +29,31 @@ interface GroupMemberListProps {
 }
 
 export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, currency, onInvite, onRemove }) => {
+  const [quickName, setQuickName] = useState('');
   const [quickEmail, setQuickEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
 
   const handleQuickInvite = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!quickEmail || !quickEmail.includes('@')) {
+    if (!quickName) {
+      toast.error('Member name is required');
+      return;
+    }
+    if (quickEmail && !quickEmail.includes('@')) {
       toast.error('Please enter a valid email');
       return;
     }
 
     setIsInviting(true);
     try {
-      const result = await onInvite(quickEmail);
+      const result = await onInvite({ name: quickName, email: quickEmail });
       if (result.status === 'pending') {
         toast.success(`Invite sent to ${quickEmail}`);
       } else {
-        toast.success(`${quickEmail} joined the group!`);
+        toast.success(`${quickName} joined the group!`);
       }
+      setQuickName('');
       setQuickEmail('');
       setShowInviteForm(false);
     } catch (error) {
@@ -78,30 +84,39 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
 
       {showInviteForm && (
         <div className="glass-card p-6 rounded-2xl border-white/10 bg-primary/5 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col gap-4">
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                Invite via Email
+                Add New Member
               </h2>
-              <p className="text-xs text-gray-500 mt-1">New users will receive a pending invitation.</p>
+              <p className="text-xs text-gray-500 mt-1">Add a name only for local tracking, or add an email to collaborate.</p>
             </div>
             
-            <form onSubmit={handleQuickInvite} className="flex gap-2 w-full md:w-auto">
-              <div className="relative flex-1 md:w-64">
+            <form onSubmit={handleQuickInvite} className="flex flex-col md:flex-row gap-3 w-full">
+              <div className="flex-1">
+                <Input
+                  placeholder="Name (e.g. John)"
+                  value={quickName}
+                  onChange={(e) => setQuickName(e.target.value)}
+                  className="bg-white/5 border-white/10 focus:border-primary/50 h-11"
+                  required
+                />
+              </div>
+              <div className="relative flex-1">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
-                  placeholder="friend@example.com"
+                  placeholder="Email (Optional)"
                   value={quickEmail}
                   onChange={(e) => setQuickEmail(e.target.value)}
-                  className="pl-10 bg-white/5 border-white/10 focus:border-primary/50"
+                  className="pl-10 bg-white/5 border-white/10 focus:border-primary/50 h-11"
                 />
               </div>
               <Button 
                 type="submit" 
-                className="btn-primary"
-                disabled={isInviting || !quickEmail}
+                className="btn-primary h-11 px-8"
+                disabled={isInviting || !quickName}
               >
-                {isInviting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send Invite'}
+                {isInviting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Member'}
               </Button>
             </form>
           </div>

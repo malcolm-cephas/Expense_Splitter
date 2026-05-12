@@ -78,20 +78,33 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
 
       // Handle initial members if provided
       if (initialMembers && Array.isArray(initialMembers)) {
-        for (const email of initialMembers) {
-          if (!email || email === user.email) continue;
+        for (const m of initialMembers) {
+          const { name: mName, email: mEmail } = typeof m === 'string' ? { name: '', email: m } : m;
           
-          const targetUser = await User.findOne({ email });
-          if (targetUser) {
-            await Group.findByIdAndUpdate(newGroup._id, {
-              $addToSet: { members: { userId: targetUser._id, role: 'member' } },
+          if (mEmail) {
+            if (mEmail === user.email) continue;
+            const targetUser = await User.findOne({ email: mEmail });
+            if (targetUser) {
+              await Group.findByIdAndUpdate(newGroup._id, {
+                $addToSet: { members: { userId: targetUser._id, role: 'member' } },
+              });
+            } else {
+              await PendingInvite.findOneAndUpdate(
+                { email: mEmail, groupId: newGroup._id },
+                { email: mEmail, groupId: newGroup._id, invitedBy: user._id },
+                { upsert: true }
+              );
+            }
+          } else if (mName) {
+            // Create ghost user
+            const ghost = await User.create({
+              name: mName,
+              isGhost: true,
+              currencyPreference: user.currencyPreference || 'USD'
             });
-          } else {
-            await PendingInvite.findOneAndUpdate(
-              { email, groupId: newGroup._id },
-              { email, groupId: newGroup._id, invitedBy: user._id },
-              { upsert: true }
-            );
+            await Group.findByIdAndUpdate(newGroup._id, {
+              $addToSet: { members: { userId: ghost._id, role: 'member' } },
+            });
           }
         }
       }
