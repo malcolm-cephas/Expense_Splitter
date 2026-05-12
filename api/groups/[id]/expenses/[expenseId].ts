@@ -1,7 +1,7 @@
 import { NextApiResponse } from 'next';
-import connectDB from '../../../../_db.js';
-import Expense from '../../../../_models/Expense.js';
-import { withAuth, AuthenticatedRequest } from '../../../../_middleware.js';
+import connectDB from '../../../_db.js';
+import Expense from '../../../_models/Expense.js';
+import { withAuth, AuthenticatedRequest } from '../../../_middleware.js';
 
 async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   await connectDB();
