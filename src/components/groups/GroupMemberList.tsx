@@ -55,6 +55,10 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
     }
   };
 
+  if (!members || !Array.isArray(members)) {
+    return <div className="text-gray-500 text-center py-10">No members found</div>;
+  }
+
   return (
     <div className="space-y-6">
       <div className="glass-card p-6 rounded-2xl border-white/5 bg-white/5">
@@ -90,6 +94,8 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {members.map((member) => {
+          if (!member?.userId) return null;
+          
           const balance = new Decimal(member.balance || '0');
           const isOwed = balance.gt(0);
           const isNeutral = balance.isZero();
@@ -100,7 +106,7 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
                 <div className="flex items-center gap-4">
                   <Avatar className="w-12 h-12 border border-white/10 shadow-inner">
                     <AvatarImage src={member.userId.picture} />
-                    <AvatarFallback className="bg-primary/10 text-primary">{member.userId.name[0]}</AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary">{member.userId.name?.[0] || '?'}</AvatarFallback>
                   </Avatar>
                   <div>
                     <div className="flex items-center gap-2">
