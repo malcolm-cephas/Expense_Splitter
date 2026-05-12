@@ -24,7 +24,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
       if (!isMember) return res.status(403).json({ error: 'Forbidden' });
 
       // High-performance aggregation to calculate total expenses and balances
-      const stats = await Expense.aggregate([
+      const stats = await (Expense as any).aggregate([
         { $match: { groupId: new mongoose.Types.ObjectId(id as string) } },
         {
           $facet: {
