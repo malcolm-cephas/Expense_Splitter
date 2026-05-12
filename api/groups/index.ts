@@ -96,10 +96,11 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
               );
             }
           } else if (mName) {
-            // Create ghost user
+            // Create ghost user with unique placeholder email
             const ghost = await User.create({
               name: mName,
               isGhost: true,
+              email: `ghost_${Date.now()}_${Math.random().toString(36).substring(7)}@managed.local`,
               currencyPreference: user.currencyPreference || 'USD'
             });
             await Group.findByIdAndUpdate(newGroup._id, {

@@ -50,6 +50,15 @@ export const useGroupDetail = (groupId: string) => {
     },
   });
 
+  const updateMemberMutation = useMutation({
+    mutationFn: async ({ userId, data }: { userId: string; data: { name?: string; role?: string } }) => {
+      await api.put(`/groups/${groupId}/members/${userId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+    },
+  });
+
   const deleteGroupMutation = useMutation({
     mutationFn: async () => {
       await api.delete(`/groups/${groupId}`);
@@ -74,6 +83,7 @@ export const useGroupDetail = (groupId: string) => {
     group: groupQuery.data,
     isLoading: groupQuery.isLoading,
     addMember: addMemberMutation.mutateAsync,
+    updateMember: updateMemberMutation.mutateAsync,
     removeMember: removeMemberMutation.mutateAsync,
     deleteGroup: deleteGroupMutation.mutateAsync,
     updateGroup: updateGroupMutation.mutateAsync,

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { EditMemberModal } from './EditMemberModal';
 import { 
   Shield, 
   MoreVertical,
@@ -25,14 +26,16 @@ interface GroupMemberListProps {
   members: GroupMember[];
   currency: string;
   onInvite: (data: { name: string; email?: string }) => Promise<any>;
+  onUpdate: (userId: string, data: { name?: string; role?: string }) => Promise<any>;
   onRemove?: (userId: string) => Promise<any>;
 }
 
-export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, currency, onInvite, onRemove }) => {
+export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, currency, onInvite, onUpdate, onRemove }) => {
   const [quickName, setQuickName] = useState('');
   const [quickEmail, setQuickEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
+  const [editingMember, setEditingMember] = useState<GroupMember | null>(null);
 
   const handleQuickInvite = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -176,6 +179,12 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
                       }
                     />
                     <DropdownMenuContent align="end" className="glass-card bg-slate-900 border-white/10 text-white">
+                      <DropdownMenuItem 
+                        className="focus:bg-white/10 cursor-pointer"
+                        onClick={() => setEditingMember(member)}
+                      >
+                        Edit Member
+                      </DropdownMenuItem>
                       <DropdownMenuItem className="focus:bg-white/10 cursor-pointer">View Statistics</DropdownMenuItem>
                       <DropdownMenuItem 
                         className="focus:bg-white/10 text-red-400 focus:text-red-400 cursor-pointer"
@@ -191,6 +200,15 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, curre
           );
         })}
       </div>
+
+      {editingMember && (
+        <EditMemberModal 
+          member={editingMember}
+          open={!!editingMember}
+          onOpenChange={(open) => !open && setEditingMember(null)}
+          onUpdate={onUpdate}
+        />
+      )}
     </div>
   );
 };

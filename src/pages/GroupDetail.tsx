@@ -38,7 +38,7 @@ import { useStatistics } from '@/hooks/useStatistics';
 const GroupDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { group, isLoading: isGroupLoading, addMember, removeMember, deleteGroup, updateGroup } = useGroupDetail(id!);
+  const { group, isLoading: isGroupLoading, addMember, updateMember, removeMember, deleteGroup, updateGroup } = useGroupDetail(id!);
   const { expenses, isLoading: isExpensesLoading, addExpense, deleteExpense } = useExpenses(id!);
   const { settlements, isLoading: isSettlementsLoading, settleUp } = useSettlements(id!);
   const { statistics, isLoading: isStatisticsLoading } = useStatistics(id!);
@@ -199,6 +199,7 @@ const GroupDetail: React.FC = () => {
               members={group.members} 
               currency={group.budgetCurrency} 
               onInvite={addMember}
+              onUpdate={(userId, data) => updateMember({ userId, data })}
               onRemove={removeMember}
             />
         </TabsContent>

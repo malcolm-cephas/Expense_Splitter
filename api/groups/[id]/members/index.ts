@@ -37,10 +37,11 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
           return res.status(200).json({ data: { status: 'pending', email } });
         }
       } else {
-        // Create a Ghost User
+        // Create a Ghost User with a unique placeholder email to avoid index conflicts
         const ghostUser = await User.create({
           name,
           isGhost: true,
+          email: `ghost_${Date.now()}_${Math.random().toString(36).substring(7)}@managed.local`,
           currencyPreference: currentUser.currencyPreference || 'USD'
         });
         targetUserId = ghostUser._id;
