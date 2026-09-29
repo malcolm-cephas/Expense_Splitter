@@ -395,15 +395,3 @@ Contributions are welcome!
 
 This project is licensed under the **MIT License**.
 See the [LICENSE](LICENSE) file for details.
-
----
-
-# 👨‍💻 Authors
-
-*Malcolm Cephas*
-- GitHub: [@Malcolm Cephas](https://github.com/malcolm-cephas)
-
-*Marcus Franklin J*
-- GitHub: [@Marcus Franklin J](https://github.com/MarcusFranklin-GIT)
-
----
