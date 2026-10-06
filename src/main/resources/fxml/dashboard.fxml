@@ -9,6 +9,7 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.chart.PieChart?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.malcolm.expensesplitter.controllers.DashboardController"
@@ -63,7 +64,9 @@
             <padding>
                 <Insets top="10.0" right="30.0" bottom="30.0" left="30.0"/>
             </padding>
-            <Label text="Select a group from the sidebar" styleClass="text-muted, title-3"/>
+            <Label text="Global Spending Overview" styleClass="title-2"/>
+            <javafx.scene.chart.PieChart fx:id="globalCategoryChart" prefHeight="450.0" prefWidth="600.0" legendSide="BOTTOM"/>
+            <Label text="Select a group from the sidebar for details" styleClass="text-muted, title-3"/>
         </VBox>
     </center>
 

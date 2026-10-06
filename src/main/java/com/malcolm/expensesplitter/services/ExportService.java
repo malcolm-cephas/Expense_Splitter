@@ -179,6 +179,12 @@ public class ExportService {
                                         if (familyAllSettled) {
                                                 involvedPara.add(new Text(" [Settled]")
                                                                 .setFontColor(ColorConstants.GREEN).setBold());
+                                        } else if (splits.stream().anyMatch(s -> s.getPaidAmount().compareTo(BigDecimal.ZERO) > 0)) {
+                                                BigDecimal familyPaid = splits.stream()
+                                                                .map(com.malcolm.expensesplitter.models.ExpenseSplit::getPaidAmount)
+                                                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                                                involvedPara.add(new Text(" [Paid: " + e.getCurrency() + " " + appConfig.formatAmount(familyPaid, e.getCurrency()) + "]")
+                                                                .setFontColor(ColorConstants.ORANGE).setBold());
                                         }
 
                                         // Show individual members if it's a family or multiple members are under this
@@ -204,6 +210,9 @@ public class ExportService {
                                         if (s.isPaid()) {
                                                 involvedPara.add(new Text(" [Settled]")
                                                                 .setFontColor(ColorConstants.GREEN));
+                                        } else if (s.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
+                                                involvedPara.add(new Text(" [Paid: " + e.getCurrency() + " " + appConfig.formatAmount(s.getPaidAmount(), e.getCurrency()) + "]")
+                                                                .setFontColor(ColorConstants.ORANGE));
                                         }
                                         involvedPara.add(new Text(" ("
                                                         + e.getCurrency() + " "
@@ -257,35 +266,53 @@ public class ExportService {
                                 new Cell().add(new Paragraph("Net Balance"))
                                                 .setBackgroundColor(ColorConstants.LIGHT_GRAY));
 
-                Map<UUID, BigDecimal> totalPaidBy = new HashMap<>();
+                Map<UUID, BigDecimal> balances = new HashMap<>();
                 Map<UUID, BigDecimal> totalShareOf = new HashMap<>();
                 for (User member : group.getMembers()) {
-                        totalPaidBy.put(member.getId(), BigDecimal.ZERO);
+                        balances.put(member.getId(), BigDecimal.ZERO);
                         totalShareOf.put(member.getId(), BigDecimal.ZERO);
                 }
                 String prefCode = appConfig.getCurrencyCode();
                 for (Expense e : sortedExpenses) {
-                        BigDecimal rate = BigDecimal.ONE;
-                        if (e.getCurrency() != null && !e.getCurrency().equalsIgnoreCase(prefCode)) {
-                                rate = exchangeRateService.getExchangeRate(e.getCurrency(), prefCode);
+                        BigDecimal totalExpenseAmount = e.getAmount();
+                        if (totalExpenseAmount.compareTo(BigDecimal.ZERO) <= 0)
+                                continue;
+
+                        BigDecimal rate = exchangeRateService.getExchangeRate(e.getCurrency(), prefCode);
+
+                        // 1. Calculate total unpaid in this expense
+                        BigDecimal totalUnpaidInExpense = BigDecimal.ZERO;
+                        for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
+                                BigDecimal unpaid = split.getOwedAmount().subtract(split.getPaidAmount());
+                                if (unpaid.compareTo(BigDecimal.ZERO) > 0) {
+                                        totalUnpaidInExpense = totalUnpaidInExpense.add(unpaid);
+                                }
                         }
 
+                        // 2. Credit payers for their share of remaining unpaid
                         for (com.malcolm.expensesplitter.models.ExpensePayment payment : e.getPayments()) {
                                 UUID payerId = payment.getUser().getId();
-                                BigDecimal conv = payment.getAmount().multiply(rate);
-                                totalPaidBy.put(payerId, totalPaidBy.get(payerId).add(conv));
+                                BigDecimal credit = totalUnpaidInExpense.multiply(payment.getAmount())
+                                                .divide(totalExpenseAmount, 4, java.math.RoundingMode.HALF_UP);
+                                balances.put(payerId, balances.get(payerId).add(credit.multiply(rate)));
                         }
+
+                        // 3. Debit members for their remaining unpaid share
                         for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
-                                UUID userId = split.getUser().getId();
-                                BigDecimal conv = split.getOwedAmount().multiply(rate);
-                                totalShareOf.put(userId, totalShareOf.get(userId).add(conv));
+                                UUID memberId = split.getUser().getId();
+                                BigDecimal unpaid = split.getOwedAmount().subtract(split.getPaidAmount());
+                                if (unpaid.compareTo(BigDecimal.ZERO) > 0) {
+                                        balances.put(memberId, balances.get(memberId).subtract(unpaid.multiply(rate)));
+                                }
+                                // Also track total share for the column
+                                totalShareOf.put(memberId, totalShareOf.get(memberId).add(split.getOwedAmount().multiply(rate)));
                         }
                 }
 
                 String prefSymbol = appConfig.getSymbol(prefCode);
                 if (group.isFamilyGroupingEnabled()) {
                         // Use TreeMap to keep family names sorted alphabetically
-                        Map<String, BigDecimal> familyPaid = new java.util.TreeMap<>();
+                        Map<String, BigDecimal> familyBalances = new java.util.TreeMap<>();
                         Map<String, BigDecimal> familyShare = new java.util.TreeMap<>();
                         Map<String, List<String>> familyMemberNames = new java.util.TreeMap<>();
 
@@ -294,17 +321,17 @@ public class ExportService {
                                 if (key == null || key.trim().isEmpty())
                                         key = member.getName();
 
-                                familyPaid.put(key, familyPaid.getOrDefault(key, BigDecimal.ZERO)
-                                                .add(totalPaidBy.get(member.getId())));
+                                familyBalances.put(key, familyBalances.getOrDefault(key, BigDecimal.ZERO)
+                                                .add(balances.get(member.getId())));
                                 familyShare.put(key, familyShare.getOrDefault(key, BigDecimal.ZERO)
                                                 .add(totalShareOf.get(member.getId())));
                                 familyMemberNames.computeIfAbsent(key, k -> new ArrayList<>()).add(member.getName());
                         }
 
                         for (String fam : familyMemberNames.keySet()) {
-                                BigDecimal paid = familyPaid.get(fam);
                                 BigDecimal share = familyShare.get(fam);
-                                BigDecimal balance = paid.subtract(share);
+                                BigDecimal balance = familyBalances.getOrDefault(fam, BigDecimal.ZERO);
+                                BigDecimal paid = balance.add(share);
                                 String membersStr = fam;
                                 if (familyMemberNames.get(fam).size() > 1
                                                 || !familyMemberNames.get(fam).get(0).equals(fam)) {
@@ -319,9 +346,9 @@ public class ExportService {
                         List<User> sortedMembers = new java.util.ArrayList<>(group.getMembers());
                         sortedMembers.sort(java.util.Comparator.comparing(User::getName));
                         for (User member : sortedMembers) {
-                                BigDecimal paid = totalPaidBy.get(member.getId());
                                 BigDecimal share = totalShareOf.get(member.getId());
-                                BigDecimal balance = paid.subtract(share);
+                                BigDecimal balance = balances.get(member.getId());
+                                BigDecimal paid = balance.add(share);
                                 balanceTable.addCell(member.getName());
                                 balanceTable.addCell(prefSymbol + " " + appConfig.formatAmount(paid));
                                 balanceTable.addCell(prefSymbol + " " + appConfig.formatAmount(share));
@@ -431,7 +458,7 @@ public class ExportService {
                 writer.println("EXPENSE SPLITTER REPORT");
                 writer.println("Group Name," + escapeCsv(group.getName()));
                 writer.println("Total Members," + group.getMembers().size());
-                writer.println("Generated At," + java.time.LocalDateTime.now().toString());
+                writer.println("Generated At," + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd MMMM yyyy")));
 
                 BigDecimal budget = group.getBudget();
                 if (budget != null && budget.compareTo(BigDecimal.ZERO) > 0) {
@@ -480,25 +507,40 @@ public class ExportService {
                                                         boolean allPaid = splits.stream().allMatch(
                                                                         com.malcolm.expensesplitter.models.ExpenseSplit::isPaid);
 
-                                                        String membersInfo = "";
-                                                        if (splits.size() > 1 || !splits.get(0).getUser().getName()
-                                                                        .equals(famName)) {
-                                                                membersInfo = " (" + splits.stream()
-                                                                                .map(s -> s.getUser().getName())
-                                                                                .collect(Collectors.joining(", "))
-                                                                                + ")";
-                                                        }
+                                                         BigDecimal famPaid = splits.stream().map(
+                                                                         com.malcolm.expensesplitter.models.ExpenseSplit::getPaidAmount)
+                                                                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                                                        String memInfo = " [" + splits.size() + " mem]";
-                                                        return famName + membersInfo + memInfo
-                                                                        + (allPaid ? " [Settled]" : "") + ": "
-                                                                        + famAmount.setScale(2,
-                                                                                        java.math.RoundingMode.HALF_UP);
+                                                         String settlementInfo = "";
+                                                         if (allPaid) {
+                                                                 settlementInfo = " [Settled]";
+                                                         } else if (famPaid.compareTo(BigDecimal.ZERO) > 0) {
+                                                                 settlementInfo = " [Paid: " + famPaid.setScale(2,
+                                                                                 java.math.RoundingMode.HALF_UP) + "]";
+                                                         }
+
+                                                         String membersInfo = "";
+                                                         if (splits.size() > 1 || !splits.get(0).getUser().getName()
+                                                                         .equals(famName)) {
+                                                                 membersInfo = " (" + splits.stream()
+                                                                                 .map(s -> s.getUser().getName())
+                                                                                 .collect(Collectors.joining(", "))
+                                                                                 + ")";
+                                                         }
+
+                                                         String memInfo = " [" + splits.size() + " mem]";
+                                                         return famName + membersInfo + memInfo
+                                                                         + settlementInfo + ": "
+                                                                         + famAmount.setScale(2,
+                                                                                         java.math.RoundingMode.HALF_UP);
                                                 })
                                                 .collect(Collectors.joining(" | "));
                         } else {
                                 involved = e.getSplits().stream()
-                                                .map(s -> s.getUser().getName() + (s.isPaid() ? " [Settled]" : "")
+                                                .map(s -> s.getUser().getName() + (s.isPaid() ? " [Settled]"
+                                                                : (s.getPaidAmount().compareTo(BigDecimal.ZERO) > 0
+                                                                                ? " [Paid: " + s.getPaidAmount().setScale(2, java.math.RoundingMode.HALF_UP) + "]"
+                                                                                : ""))
                                                                 + ": "
                                                                 + s.getOwedAmount().setScale(2,
                                                                                 java.math.RoundingMode.HALF_UP))
@@ -558,37 +600,54 @@ public class ExportService {
                 writer.println("User,Total Paid (As Payer),Total Share (Own Expenses),Net Balance (Positive = Is Owed)");
                 Map<UUID, String> userNames = group.getMembers().stream()
                                 .collect(Collectors.toMap(User::getId, User::getName));
-                Map<UUID, BigDecimal> totalPaidBy = new HashMap<>(); // How much they paid for everyone
-                Map<UUID, BigDecimal> totalShareOf = new HashMap<>(); // How much they owe for their share
+                Map<UUID, BigDecimal> balances = new HashMap<>();
+                Map<UUID, BigDecimal> totalShareOf = new HashMap<>();
 
                 for (User member : group.getMembers()) {
-                        totalPaidBy.put(member.getId(), BigDecimal.ZERO);
+                        balances.put(member.getId(), BigDecimal.ZERO);
                         totalShareOf.put(member.getId(), BigDecimal.ZERO);
                 }
 
                 String prefCode = appConfig.getCurrencyCode();
                 for (Expense e : sortedExpenses) {
-                        BigDecimal rate = BigDecimal.ONE;
-                        if (e.getCurrency() != null && !e.getCurrency().equalsIgnoreCase(prefCode)) {
-                                rate = exchangeRateService.getExchangeRate(e.getCurrency(), prefCode);
+                        BigDecimal totalExpenseAmount = e.getAmount();
+                        if (totalExpenseAmount.compareTo(BigDecimal.ZERO) <= 0)
+                                continue;
+
+                        BigDecimal rate = exchangeRateService.getExchangeRate(e.getCurrency(), prefCode);
+
+                        // 1. Calculate total unpaid in this expense
+                        BigDecimal totalUnpaidInExpense = BigDecimal.ZERO;
+                        for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
+                                BigDecimal unpaid = split.getOwedAmount().subtract(split.getPaidAmount());
+                                if (unpaid.compareTo(BigDecimal.ZERO) > 0) {
+                                        totalUnpaidInExpense = totalUnpaidInExpense.add(unpaid);
+                                }
                         }
 
+                        // 2. Credit payers for their share of remaining unpaid
                         for (com.malcolm.expensesplitter.models.ExpensePayment payment : e.getPayments()) {
                                 UUID payerId = payment.getUser().getId();
-                                BigDecimal conv = payment.getAmount().multiply(rate);
-                                totalPaidBy.put(payerId, totalPaidBy.getOrDefault(payerId, BigDecimal.ZERO).add(conv));
+                                BigDecimal credit = totalUnpaidInExpense.multiply(payment.getAmount())
+                                                .divide(totalExpenseAmount, 4, java.math.RoundingMode.HALF_UP);
+                                balances.put(payerId, balances.get(payerId).add(credit.multiply(rate)));
                         }
+
+                        // 3. Debit members for their remaining unpaid share
                         for (com.malcolm.expensesplitter.models.ExpenseSplit split : e.getSplits()) {
                                 UUID memberId = split.getUser().getId();
-                                BigDecimal conv = split.getOwedAmount().multiply(rate);
-                                totalShareOf.put(memberId,
-                                                totalShareOf.getOrDefault(memberId, BigDecimal.ZERO).add(conv));
+                                BigDecimal unpaid = split.getOwedAmount().subtract(split.getPaidAmount());
+                                if (unpaid.compareTo(BigDecimal.ZERO) > 0) {
+                                        balances.put(memberId, balances.get(memberId).subtract(unpaid.multiply(rate)));
+                                }
+                                // Also track total share for the column
+                                totalShareOf.put(memberId, totalShareOf.get(memberId).add(split.getOwedAmount().multiply(rate)));
                         }
                 }
 
                 if (group.isFamilyGroupingEnabled()) {
                         // Use TreeMap to keep family names sorted alphabetically
-                        Map<String, BigDecimal> familyPaid = new java.util.TreeMap<>();
+                        Map<String, BigDecimal> familyBalances = new java.util.TreeMap<>();
                         Map<String, BigDecimal> familyShare = new java.util.TreeMap<>();
 
                         for (User member : group.getMembers()) {
@@ -596,16 +655,16 @@ public class ExportService {
                                 if (key == null || key.trim().isEmpty())
                                         key = member.getName();
 
-                                familyPaid.put(key, familyPaid.getOrDefault(key, BigDecimal.ZERO)
-                                                .add(totalPaidBy.get(member.getId())));
+                                familyBalances.put(key, familyBalances.getOrDefault(key, BigDecimal.ZERO)
+                                                .add(balances.get(member.getId())));
                                 familyShare.put(key, familyShare.getOrDefault(key, BigDecimal.ZERO)
                                                 .add(totalShareOf.get(member.getId())));
                         }
 
-                        for (String fam : familyPaid.keySet()) {
-                                BigDecimal paid = familyPaid.get(fam);
+                        for (String fam : familyShare.keySet()) {
                                 BigDecimal share = familyShare.get(fam);
-                                BigDecimal balance = paid.subtract(share);
+                                BigDecimal balance = familyBalances.getOrDefault(fam, BigDecimal.ZERO);
+                                BigDecimal paid = balance.add(share);
                                 writer.println(escapeCsv(fam) + "," +
                                                 paid.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode + ","
                                                 +
@@ -617,9 +676,9 @@ public class ExportService {
                         List<User> sortedMembers = new java.util.ArrayList<>(group.getMembers());
                         sortedMembers.sort(java.util.Comparator.comparing(User::getName));
                         for (User member : sortedMembers) {
-                                BigDecimal paid = totalPaidBy.get(member.getId());
                                 BigDecimal share = totalShareOf.get(member.getId());
-                                BigDecimal balance = paid.subtract(share);
+                                BigDecimal balance = balances.get(member.getId());
+                                BigDecimal paid = balance.add(share);
                                 writer.println(escapeCsv(member.getName()) + "," +
                                                 paid.setScale(2, java.math.RoundingMode.HALF_UP) + " " + prefCode + ","
                                                 +

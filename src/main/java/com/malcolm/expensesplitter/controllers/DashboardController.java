@@ -27,6 +27,8 @@ import javafx.scene.control.TextInputDialog;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Controller for the Main Dashboard.
@@ -74,6 +76,9 @@ public class DashboardController {
 
     @FXML
     private VBox mainContentArea;
+
+    @FXML
+    private javafx.scene.chart.PieChart globalCategoryChart;
 
     @FXML
     private TextField currencySearchField;
@@ -232,6 +237,26 @@ public class DashboardController {
             themeToggleButton.setSelected(isDark);
             themeToggleButton.setText(isDark ? "🌙 Dark" : "☀️ Light");
         }
+
+        loadGlobalChart();
+    }
+
+    private void loadGlobalChart() {
+        if (globalCategoryChart == null) return;
+        List<com.malcolm.expensesplitter.models.Expense> allExpenses = expenseRepository.findAll();
+        Map<String, Double> categoryTotals = allExpenses.stream()
+            .collect(Collectors.groupingBy(
+                e -> e.getCategory() != null ? e.getCategory() : "Other",
+                Collectors.summingDouble(e -> e.getAmount().doubleValue())
+            ));
+
+        ObservableList<javafx.scene.chart.PieChart.Data> pieChartData = FXCollections.observableArrayList();
+        categoryTotals.forEach((category, total) -> {
+            if (total > 0) {
+                pieChartData.add(new javafx.scene.chart.PieChart.Data(category, total));
+            }
+        });
+        globalCategoryChart.setData(pieChartData);
     }
 
     private void setupSearchableCurrency() {

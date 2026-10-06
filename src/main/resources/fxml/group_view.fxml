@@ -49,7 +49,11 @@
     <HBox spacing="20.0" VBox.vgrow="ALWAYS">
         <!-- Expenses List -->
         <VBox HBox.hgrow="ALWAYS" spacing="10.0">
-            <Label text="Expenses List" styleClass="title-3"/>
+            <HBox alignment="CENTER_LEFT" spacing="15.0">
+                <Label text="Expenses List" styleClass="title-3"/>
+                <javafx.scene.layout.Region HBox.hgrow="ALWAYS" />
+                <javafx.scene.control.TextField fx:id="searchExpenseField" promptText="Search expenses..." prefWidth="250.0" />
+            </HBox>
             <ListView fx:id="expenseListView" VBox.vgrow="ALWAYS">
                 <contextMenu>
                     <javafx.scene.control.ContextMenu>

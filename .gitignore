@@ -33,6 +33,7 @@ exchange_rates.json
 currency_names.json
 *.mv.db
 *.trace.db
+Host steps.md
 
 # OS Files
 .DS_Store

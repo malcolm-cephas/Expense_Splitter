@@ -21,8 +21,14 @@ import javafx.stage.Stage;
 import com.malcolm.expensesplitter.dto.TransactionDto;
 import com.malcolm.expensesplitter.services.ExportService;
 import com.malcolm.expensesplitter.services.SettlementService;
+import com.malcolm.expensesplitter.command.CommandManager;
+import com.malcolm.expensesplitter.command.DeleteExpenseCommand;
+import com.malcolm.expensesplitter.repositories.ExpenseRepository;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
@@ -57,6 +63,12 @@ public class GroupViewController {
     @Autowired
     private ExportService exportService;
 
+    @Autowired
+    private CommandManager commandManager;
+
+    @Autowired
+    private ExpenseRepository expenseRepository;
+
     @FXML
     private Label groupNameLabel;
 
@@ -82,16 +94,39 @@ public class GroupViewController {
     private ListView<User> memberListView;
 
     @FXML
+    private javafx.scene.control.TextField searchExpenseField;
+
+    @FXML
     private javafx.scene.control.ToggleButton familyGroupingToggle;
 
     private Group currentGroup;
     private ObservableList<Expense> expensesObservable = FXCollections.observableArrayList();
+    private javafx.collections.transformation.FilteredList<Expense> filteredExpenses;
     private ObservableList<User> membersObservable = FXCollections.observableArrayList();
 
     @FXML
     public void initialize() {
-        expenseListView.setItems(expensesObservable);
+        filteredExpenses = new javafx.collections.transformation.FilteredList<>(expensesObservable, p -> true);
+        expenseListView.setItems(filteredExpenses);
         memberListView.setItems(membersObservable);
+
+        if (searchExpenseField != null) {
+            searchExpenseField.textProperty().addListener((obs, oldVal, newVal) -> {
+                filteredExpenses.setPredicate(expense -> {
+                    if (newVal == null || newVal.isEmpty()) {
+                        return true;
+                    }
+                    String lowerCaseFilter = newVal.toLowerCase();
+                    if (expense.getDescription() != null && expense.getDescription().toLowerCase().contains(lowerCaseFilter)) {
+                        return true;
+                    }
+                    if (expense.getCategory() != null && expense.getCategory().toLowerCase().contains(lowerCaseFilter)) {
+                        return true;
+                    }
+                    return false;
+                });
+            });
+        }
 
         memberListView.setCellFactory(param -> new javafx.scene.control.ListCell<User>() {
             @Override
@@ -148,6 +183,22 @@ public class GroupViewController {
                 if (selectedExpense != null) {
                     showExpenseDetails(selectedExpense);
                 }
+            }
+        });
+
+        // Add Undo keyboard shortcut (Ctrl+Z)
+        javafx.application.Platform.runLater(() -> {
+            if (expenseListView.getScene() != null) {
+                expenseListView.getScene().getAccelerators().put(
+                    new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
+                    () -> {
+                        if (commandManager.canUndo()) {
+                            commandManager.undo();
+                            refreshExpenses();
+                            // Optional: Show a toast or small alert indicating Undo was successful
+                        }
+                    }
+                );
             }
         });
     }
@@ -251,10 +302,10 @@ public class GroupViewController {
 
     @FXML
     public void handleDeleteExpense() {
-        // ...
         Expense selected = expenseListView.getSelectionModel().getSelectedItem();
         if (selected != null) {
-            expenseService.deleteExpense(selected.getId());
+            // Use Command Pattern for Undo capability
+            commandManager.executeCommand(new DeleteExpenseCommand(expenseRepository, selected));
             refreshExpenses();
         }
     }

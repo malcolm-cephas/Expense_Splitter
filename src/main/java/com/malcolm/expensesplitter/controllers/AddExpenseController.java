@@ -38,6 +38,9 @@ import javafx.scene.Scene;
 import javafx.stage.Modality;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
+import com.malcolm.expensesplitter.command.CommandManager;
+import com.malcolm.expensesplitter.command.AddExpenseCommand;
+import com.malcolm.expensesplitter.repositories.ExpenseRepository;
 
 @Controller
 @Scope("prototype")
@@ -57,6 +60,12 @@ public class AddExpenseController {
 
     @Autowired
     private ReceiptService receiptService;
+
+    @Autowired
+    private CommandManager commandManager;
+
+    @Autowired
+    private ExpenseRepository expenseRepository;
 
     @FXML
     private TextField descriptionField;
@@ -532,8 +541,11 @@ public class AddExpenseController {
                 expenseService.updateExpense(expenseToEdit.getId(), currentGroup.getId(), paymentInputs, amount,
                         description, paymentMode, category, expenseDate, splitType, splitInputs, currency, currentReceiptPath);
             } else {
-                expenseService.addExpense(currentGroup.getId(), paymentInputs, amount, description, paymentMode,
+                Expense newExpense = expenseService.addExpense(currentGroup.getId(), paymentInputs, amount, description, paymentMode,
                         category, expenseDate, splitType, splitInputs, currency, currentReceiptPath);
+                
+                // Push AddExpenseCommand to undo stack
+                commandManager.pushCommand(new AddExpenseCommand(expenseRepository, newExpense));
             }
 
             saveClicked = true;
