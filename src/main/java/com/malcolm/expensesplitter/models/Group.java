@@ -32,8 +32,14 @@ public class Group {
     @jakarta.persistence.Column(nullable = false, columnDefinition = "boolean default false")
     private boolean familyGroupingEnabled = false;
 
+    @jakarta.persistence.Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean investmentEnabled = false;
+
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     private java.util.List<Expense> expenses = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<Business> businesses = new java.util.ArrayList<>();
 
     public Group() {
     }
@@ -124,5 +130,31 @@ public class Group {
 
     public void setFamilyGroupingEnabled(boolean familyGroupingEnabled) {
         this.familyGroupingEnabled = familyGroupingEnabled;
+    }
+
+    public boolean isInvestmentEnabled() {
+        return investmentEnabled;
+    }
+
+    public void setInvestmentEnabled(boolean investmentEnabled) {
+        this.investmentEnabled = investmentEnabled;
+    }
+
+    public java.util.List<Business> getBusinesses() {
+        return businesses;
+    }
+
+    public void setBusinesses(java.util.List<Business> businesses) {
+        this.businesses = businesses;
+    }
+
+    public void addBusiness(Business business) {
+        businesses.add(business);
+        business.setGroup(this);
+    }
+
+    public void removeBusiness(Business business) {
+        businesses.remove(business);
+        business.setGroup(null);
     }
 }

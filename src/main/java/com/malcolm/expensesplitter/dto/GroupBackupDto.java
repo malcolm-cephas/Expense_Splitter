@@ -16,8 +16,34 @@ public class GroupBackupDto {
     public BigDecimal budget;
     public String budgetCurrency;
     public boolean familyGroupingEnabled;
+    public boolean investmentEnabled;
     public List<UserBackupDto> members;
     public List<ExpenseBackupDto> expenses;
+    public List<BusinessBackupDto> businesses;
+
+    public static class BusinessBackupDto {
+        public String name;
+        public String description;
+        public BigDecimal initialCapital;
+        public List<InvestmentBackupDto> investments;
+        public List<InvestmentTransactionBackupDto> transactions;
+    }
+
+    public static class InvestmentBackupDto {
+        public String investorEmail;
+        public BigDecimal originalInvestment;
+        public BigDecimal expectedShare;
+        public BigDecimal capitalReturned;
+        public BigDecimal profitReceived;
+    }
+
+    public static class InvestmentTransactionBackupDto {
+        public String investorEmail;
+        public String type;
+        public BigDecimal amount;
+        public String description;
+        public LocalDateTime createdAt;
+    }
 
     public static class UserBackupDto {
         public String name;

@@ -4,6 +4,11 @@ import com.malcolm.expensesplitter.dto.TransactionDto;
 import com.malcolm.expensesplitter.models.Expense;
 import com.malcolm.expensesplitter.models.Group;
 import com.malcolm.expensesplitter.models.User;
+import com.malcolm.expensesplitter.models.Business;
+import com.malcolm.expensesplitter.models.Investment;
+import com.malcolm.expensesplitter.repositories.GroupRepository;
+import org.hibernate.Hibernate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.io.PrintWriter;
@@ -47,6 +52,9 @@ public class ExportService {
         @Autowired
         private ExchangeRateService exchangeRateService;
 
+        @Autowired
+        private GroupRepository groupRepository;
+
         private final ObjectMapper objectMapper;
 
         public ExportService() {
@@ -64,8 +72,10 @@ public class ExportService {
          * @param file        The target PDF file.
          * @throws Exception If PDF generation fails.
          */
+        @Transactional(readOnly = true)
         public void exportGroupToPdf(Group group, List<Expense> expenses, List<TransactionDto> settlements, File file)
                         throws Exception {
+                group = loadGroupForExport(group);
                 PdfWriter writer = new PdfWriter(file);
                 PdfDocument pdf = new PdfDocument(writer);
                 Document document = new Document(pdf);
@@ -102,7 +112,8 @@ public class ExportService {
                                                         + " " + budgetCurrency))
                                         .add(new Text("  |  "))
                                         .add(new Text("Total Spent: ").setBold())
-                                        .add(new Text(budgetSymbol + appConfig.formatAmount(totalSpent, budgetCurrency)))
+                                        .add(new Text(budgetSymbol
+                                                        + appConfig.formatAmount(totalSpent, budgetCurrency)))
                                         .add(new Text("  |  "))
                                         .add(new Text("Remaining: ").setBold());
 
@@ -116,6 +127,30 @@ public class ExportService {
                         document.add(budgetPara);
                 }
                 document.add(new Paragraph("\n"));
+
+                // Investment contributions/shares are exported alongside ordinary expenses.
+                List<InvestmentRow> investmentRows = investmentRows(group);
+                if (!investmentRows.isEmpty()) {
+                        document.add(new Paragraph("INVESTMENT / CONTRIBUTION BALANCES").setBold());
+                        Table investmentTable = new Table(UnitValue.createPercentArray(new float[] { 2, 2, 2, 2, 2 }))
+                                        .useAllAvailableWidth();
+                        investmentTable.addHeaderCell("Member");
+                        investmentTable.addHeaderCell("Paid / Contributed");
+                        investmentTable.addHeaderCell("Share / Owed");
+                        investmentTable.addHeaderCell("Reimbursed");
+                        investmentTable.addHeaderCell("Balance (+ owed / - owes)");
+                        for (InvestmentRow row : investmentRows) {
+                                investmentTable.addCell(row.member.getName());
+                                investmentTable.addCell(formatMoney(row.contributed));
+                                investmentTable.addCell(formatMoney(row.share));
+                                investmentTable.addCell(formatMoney(row.reimbursed));
+                                investmentTable.addCell(formatMoney(row.balance));
+                        }
+                        document.add(investmentTable);
+                        document.add(new Paragraph(
+                                        "Positive balances are owed to the member; negative balances are owed by the member."));
+                        document.add(new Paragraph("\n"));
+                }
 
                 // 1. Expenses Summary Table
                 // This table gives a high-level overview of each transaction in the group.
@@ -179,6 +214,18 @@ public class ExportService {
                                         if (familyAllSettled) {
                                                 involvedPara.add(new Text(" [Settled]")
                                                                 .setFontColor(ColorConstants.GREEN).setBold());
+                                        } else if (splits.stream().anyMatch(
+                                                        s -> s.getPaidAmount().compareTo(BigDecimal.ZERO) > 0)) {
+                                                BigDecimal familyPaid = splits.stream()
+                                                                .map(com.malcolm.expensesplitter.models.ExpenseSplit::getPaidAmount)
+                                                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                                                involvedPara.add(
+                                                                new Text(" [Paid: " + e.getCurrency() + " "
+                                                                                + appConfig.formatAmount(familyPaid,
+                                                                                                e.getCurrency())
+                                                                                + "]")
+                                                                                .setFontColor(ColorConstants.BLUE)
+                                                                                .setBold());
                                         }
 
                                         // Show individual members if it's a family or multiple members are under this
@@ -204,6 +251,12 @@ public class ExportService {
                                         if (s.isPaid()) {
                                                 involvedPara.add(new Text(" [Settled]")
                                                                 .setFontColor(ColorConstants.GREEN));
+                                        } else if (s.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
+                                                involvedPara.add(new Text(" [Paid: " + e.getCurrency() + " "
+                                                                + appConfig.formatAmount(s.getPaidAmount(),
+                                                                                e.getCurrency())
+                                                                + "]")
+                                                                .setFontColor(ColorConstants.BLUE));
                                         }
                                         involvedPara.add(new Text(" ("
                                                         + e.getCurrency() + " "
@@ -373,7 +426,6 @@ public class ExportService {
                 }
 
                 // 4. Detailed Splits (Placed on a new page for clarity)
-                document.add(new AreaBreak(AreaBreakType.NEXT_PAGE));
                 document.add(new Paragraph("4. DETAILED INDIVIDUAL SPLITS").setBold().setFontSize(16));
                 float[] splitWidths = { 3, 4, 2, 2, 2 };
                 Table splitsTable = new Table(UnitValue.createPercentArray(splitWidths)).useAllAvailableWidth();
@@ -396,8 +448,10 @@ public class ExportService {
                                         if (split.getUser().getId().equals(member.getId())) {
                                                 splitsTable.addCell(member.getName());
                                                 splitsTable.addCell(e.getDescription());
-                                                splitsTable.addCell(e.getCurrency() + " " + appConfig.formatAmount(split.getOwedAmount(), e.getCurrency()));
-                                                splitsTable.addCell(e.getCurrency() + " " + appConfig.formatAmount(split.getPaidAmount(), e.getCurrency()));
+                                                splitsTable.addCell(e.getCurrency() + " " + appConfig
+                                                                .formatAmount(split.getOwedAmount(), e.getCurrency()));
+                                                splitsTable.addCell(e.getCurrency() + " " + appConfig
+                                                                .formatAmount(split.getPaidAmount(), e.getCurrency()));
 
                                                 Cell statusCell = new Cell().add(
                                                                 new Paragraph(split.isPaid() ? "Settled" : "Pending"));
@@ -422,8 +476,10 @@ public class ExportService {
          * @param settlements Simplified suggestions.
          * @param writer      PrintWriter for the file.
          */
+        @Transactional(readOnly = true)
         public void exportGroupToCsv(Group group, List<Expense> expenses, List<TransactionDto> settlements,
                         PrintWriter writer) {
+                group = loadGroupForExport(group);
                 List<Expense> sortedExpenses = new java.util.ArrayList<>(expenses);
                 sortedExpenses.sort(java.util.Comparator.comparing(Expense::getExpenseDate)
                                 .thenComparing(Expense::getCreatedAt));
@@ -432,6 +488,8 @@ public class ExportService {
                 writer.println("Group Name," + escapeCsv(group.getName()));
                 writer.println("Total Members," + group.getMembers().size());
                 writer.println("Generated At," + java.time.LocalDateTime.now().toString());
+                writer.println("Generated At," + java.time.LocalDate.now()
+                                .format(java.time.format.DateTimeFormatter.ofPattern("dd MMMM yyyy")));
 
                 BigDecimal budget = group.getBudget();
                 if (budget != null && budget.compareTo(BigDecimal.ZERO) > 0) {
@@ -464,44 +522,49 @@ public class ExportService {
                                 java.util.Map<String, List<com.malcolm.expensesplitter.models.ExpenseSplit>> familySplits = new java.util.LinkedHashMap<>();
                                 for (com.malcolm.expensesplitter.models.ExpenseSplit s : e.getSplits()) {
                                         String family = s.getUser().getFamilyName();
-                                        if (family == null || family.trim().isEmpty())
+                                        if (family == null || family.trim().isEmpty()) {
                                                 family = s.getUser().getName();
+                                        }
                                         familySplits.computeIfAbsent(family, k -> new java.util.ArrayList<>()).add(s);
                                 }
 
                                 involved = familySplits.entrySet().stream()
                                                 .map(entry -> {
                                                         String famName = entry.getKey();
-                                                        List<com.malcolm.expensesplitter.models.ExpenseSplit> splits = entry
-                                                                        .getValue();
-                                                        BigDecimal famAmount = splits.stream().map(
-                                                                        com.malcolm.expensesplitter.models.ExpenseSplit::getOwedAmount)
+                                                        List<com.malcolm.expensesplitter.models.ExpenseSplit> splits = entry.getValue();
+                                                        BigDecimal famAmount = splits.stream()
+                                                                        .map(com.malcolm.expensesplitter.models.ExpenseSplit::getOwedAmount)
+                                                                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                                                        BigDecimal famPaid = splits.stream()
+                                                                        .map(com.malcolm.expensesplitter.models.ExpenseSplit::getPaidAmount)
                                                                         .reduce(BigDecimal.ZERO, BigDecimal::add);
                                                         boolean allPaid = splits.stream().allMatch(
                                                                         com.malcolm.expensesplitter.models.ExpenseSplit::isPaid);
 
                                                         String membersInfo = "";
-                                                        if (splits.size() > 1 || !splits.get(0).getUser().getName()
-                                                                        .equals(famName)) {
+                                                        if (splits.size() > 1 || !splits.get(0).getUser().getName().equals(famName)) {
                                                                 membersInfo = " (" + splits.stream()
                                                                                 .map(s -> s.getUser().getName())
-                                                                                .collect(Collectors.joining(", "))
-                                                                                + ")";
+                                                                                .collect(Collectors.joining(", ")) + ")";
                                                         }
-
-                                                        String memInfo = " [" + splits.size() + " mem]";
-                                                        return famName + membersInfo + memInfo
-                                                                        + (allPaid ? " [Settled]" : "") + ": "
-                                                                        + famAmount.setScale(2,
-                                                                                        java.math.RoundingMode.HALF_UP);
+                                                        String paymentInfo = allPaid ? " [Settled]"
+                                                                        : (famPaid.compareTo(BigDecimal.ZERO) > 0
+                                                                                        ? " [Paid: " + famPaid.setScale(2, java.math.RoundingMode.HALF_UP) + "]"
+                                                                                        : "");
+                                                        return famName + membersInfo + " [" + splits.size() + " mem]"
+                                                                        + paymentInfo + ": "
+                                                                        + famAmount.setScale(2, java.math.RoundingMode.HALF_UP);
                                                 })
                                                 .collect(Collectors.joining(" | "));
                         } else {
                                 involved = e.getSplits().stream()
-                                                .map(s -> s.getUser().getName() + (s.isPaid() ? " [Settled]" : "")
+                                                .map(s -> s.getUser().getName()
+                                                                + (s.isPaid() ? " [Settled]"
+                                                                                : (s.getPaidAmount().compareTo(BigDecimal.ZERO) > 0
+                                                                                                ? " [Paid: " + s.getPaidAmount().setScale(2, java.math.RoundingMode.HALF_UP) + "]"
+                                                                                                : ""))
                                                                 + ": "
-                                                                + s.getOwedAmount().setScale(2,
-                                                                                java.math.RoundingMode.HALF_UP))
+                                                                + s.getOwedAmount().setScale(2, java.math.RoundingMode.HALF_UP))
                                                 .collect(Collectors.joining(" | "));
                         }
 
@@ -552,6 +615,25 @@ public class ExportService {
                         }
                 }
                 writer.println();
+
+                // Investment-mode balances are included in the same export used by Settle Up.
+                List<InvestmentRow> investmentRows = investmentRows(group);
+                if (!investmentRows.isEmpty()) {
+                        writer.println("--- INVESTMENT / CONTRIBUTION BALANCES ---");
+                        writer.println("Member,Total Paid / Contributed,Total Share / Owed,Reimbursed,Net Balance (+ owed / - owes)");
+                        for (InvestmentRow row : investmentRows) {
+                                writer.println(escapeCsv(row.member.getName()) + ","
+                                                + row.contributed.setScale(2, java.math.RoundingMode.HALF_UP) + " "
+                                                + appConfig.getCurrencyCode() + ","
+                                                + row.share.setScale(2, java.math.RoundingMode.HALF_UP) + " "
+                                                + appConfig.getCurrencyCode() + ","
+                                                + row.reimbursed.setScale(2, java.math.RoundingMode.HALF_UP) + " "
+                                                + appConfig.getCurrencyCode() + ","
+                                                + row.balance.setScale(2, java.math.RoundingMode.HALF_UP) + " "
+                                                + appConfig.getCurrencyCode());
+                        }
+                        writer.println();
+                }
 
                 // 3. User Balances Table (Settle Up Table)
                 writer.println("--- FINAL SETTLE UP TABLE (BALANCES) ---");
@@ -656,13 +738,16 @@ public class ExportService {
                 }
         }
 
+        @Transactional(readOnly = true)
         public void exportGroupToJsonBackup(Group group, List<Expense> expenses, File file) throws Exception {
+                group = loadGroupForExport(group);
                 GroupBackupDto dto = new GroupBackupDto();
                 dto.name = group.getName();
                 dto.description = group.getDescription();
                 dto.budget = group.getBudget();
                 dto.budgetCurrency = group.getBudgetCurrency();
                 dto.familyGroupingEnabled = group.isFamilyGroupingEnabled();
+                dto.investmentEnabled = group.isInvestmentEnabled();
 
                 dto.members = group.getMembers().stream().map(m -> {
                         GroupBackupDto.UserBackupDto ud = new GroupBackupDto.UserBackupDto();
@@ -703,7 +788,102 @@ public class ExportService {
                         return ed;
                 }).collect(Collectors.toList());
 
+                dto.businesses = group.getBusinesses().stream().map(business -> {
+                        GroupBackupDto.BusinessBackupDto bd = new GroupBackupDto.BusinessBackupDto();
+                        bd.name = business.getName();
+                        bd.description = business.getDescription();
+                        bd.initialCapital = business.getInitialCapital();
+                        bd.investments = business.getInvestments().stream().map(investment -> {
+                                GroupBackupDto.InvestmentBackupDto id = new GroupBackupDto.InvestmentBackupDto();
+                                id.investorEmail = investment.getInvestor().getEmail();
+                                id.originalInvestment = investment.getOriginalInvestment();
+                                id.expectedShare = investment.getExpectedShare();
+                                id.capitalReturned = investment.getCapitalReturned();
+                                id.profitReceived = investment.getProfitReceived();
+                                return id;
+                        }).collect(Collectors.toList());
+                        bd.transactions = business.getTransactions().stream().map(transaction -> {
+                                GroupBackupDto.InvestmentTransactionBackupDto td = new GroupBackupDto.InvestmentTransactionBackupDto();
+                                td.investorEmail = transaction.getInvestor() == null ? null
+                                                : transaction.getInvestor().getEmail();
+                                td.type = transaction.getType().name();
+                                td.amount = transaction.getAmount();
+                                td.description = transaction.getDescription();
+                                td.createdAt = transaction.getCreatedAt();
+                                return td;
+                        }).collect(Collectors.toList());
+                        return bd;
+                }).collect(Collectors.toList());
+
                 objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, dto);
+        }
+
+        /**
+         * Reloads the group inside the export transaction so lazy investment/business
+         * collections remain attached while PDF, CSV, or JSON data is assembled.
+         */
+        private Group loadGroupForExport(Group suppliedGroup) {
+                if (suppliedGroup == null || suppliedGroup.getId() == null) {
+                        throw new IllegalArgumentException("A saved group is required for export");
+                }
+                Group group = groupRepository.findById(suppliedGroup.getId())
+                                .orElseThrow(() -> new IllegalArgumentException("Group no longer exists"));
+                Hibernate.initialize(group.getMembers());
+                Hibernate.initialize(group.getBusinesses());
+                for (Business business : group.getBusinesses()) {
+                        Hibernate.initialize(business.getInvestments());
+                        Hibernate.initialize(business.getTransactions());
+                        for (Investment investment : business.getInvestments()) {
+                                Hibernate.initialize(investment.getInvestor());
+                        }
+                        for (com.malcolm.expensesplitter.models.InvestmentTransaction transaction : business
+                                        .getTransactions()) {
+                                if (transaction.getInvestor() != null) {
+                                        Hibernate.initialize(transaction.getInvestor());
+                                }
+                        }
+                }
+                return group;
+        }
+
+        private List<InvestmentRow> investmentRows(Group group) {
+                Map<UUID, InvestmentRow> rows = new java.util.LinkedHashMap<>();
+                if (group == null || group.getBusinesses() == null) {
+                        return new ArrayList<>();
+                }
+                for (Business business : group.getBusinesses()) {
+                        for (Investment investment : business.getInvestments()) {
+                                if (investment.getInvestor() == null) {
+                                        continue;
+                                }
+                                InvestmentRow row = rows.computeIfAbsent(investment.getInvestor().getId(),
+                                                id -> new InvestmentRow(investment.getInvestor()));
+                                row.contributed = row.contributed.add(investment.getOriginalInvestment());
+                                row.share = row.share.add(investment.getExpectedShare());
+                                row.reimbursed = row.reimbursed.add(investment.getCapitalReturned());
+                        }
+                }
+                rows.values().forEach(
+                                row -> row.balance = row.contributed.subtract(row.share).subtract(row.reimbursed));
+                return rows.values().stream().sorted(java.util.Comparator.comparing(row -> row.member.getName()))
+                                .toList();
+        }
+
+        private String formatMoney(BigDecimal amount) {
+                return appConfig.getSymbol(appConfig.getCurrencyCode()) + " "
+                                + appConfig.formatAmount(amount) + " " + appConfig.getCurrencyCode();
+        }
+
+        private static class InvestmentRow {
+                private final User member;
+                private BigDecimal contributed = BigDecimal.ZERO;
+                private BigDecimal share = BigDecimal.ZERO;
+                private BigDecimal reimbursed = BigDecimal.ZERO;
+                private BigDecimal balance = BigDecimal.ZERO;
+
+                private InvestmentRow(User member) {
+                        this.member = member;
+                }
         }
 
         private String escapeCsv(String value) {

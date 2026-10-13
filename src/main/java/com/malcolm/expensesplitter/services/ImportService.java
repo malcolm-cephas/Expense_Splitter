@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,6 +60,7 @@ public class ImportService {
         group.setBudget(dto.budget);
         group.setBudgetCurrency(dto.budgetCurrency);
         group.setFamilyGroupingEnabled(dto.familyGroupingEnabled);
+        group.setInvestmentEnabled(dto.investmentEnabled);
         
         for (User user : emailToUserMap.values()) {
             group.getMembers().add(user);
@@ -71,7 +73,54 @@ public class ImportService {
 
         group = groupRepository.save(group);
 
-        // 3. Restore Expenses
+        // 3. Restore Investment records if present (backward-compatible import)
+        if (dto.businesses != null) {
+            for (GroupBackupDto.BusinessBackupDto bd : dto.businesses) {
+                if (bd == null) {
+                    continue;
+                }
+                Business business = new Business(group, bd.name != null ? bd.name : "Business");
+                business.setDescription(bd.description);
+                business.setInitialCapital(bd.initialCapital != null ? bd.initialCapital : BigDecimal.ZERO);
+                if (bd.investments != null) {
+                    for (GroupBackupDto.InvestmentBackupDto id : bd.investments) {
+                        if (id == null || id.investorEmail == null) {
+                            continue;
+                        }
+                        User investor = emailToUserMap.get(id.investorEmail);
+                        if (investor == null) {
+                            continue;
+                        }
+                        Investment investment = new Investment(business, investor,
+                                id.originalInvestment != null ? id.originalInvestment : BigDecimal.ZERO);
+                        investment.setExpectedShare(id.expectedShare != null ? id.expectedShare : BigDecimal.ZERO);
+                        investment.setCapitalReturned(id.capitalReturned != null ? id.capitalReturned : BigDecimal.ZERO);
+                        investment.setProfitReceived(id.profitReceived != null ? id.profitReceived : BigDecimal.ZERO);
+                        business.addInvestment(investment);
+                    }
+                }
+                if (bd.transactions != null) {
+                    for (GroupBackupDto.InvestmentTransactionBackupDto td : bd.transactions) {
+                        if (td == null || td.investorEmail == null) {
+                            continue;
+                        }
+                        User investor = emailToUserMap.get(td.investorEmail);
+                        if (investor == null) {
+                            continue;
+                        }
+                        InvestmentTransactionType type = InvestmentTransactionType.valueOf(td.type);
+                        InvestmentTransaction tx = new InvestmentTransaction(business, investor, type,
+                                td.amount != null ? td.amount : BigDecimal.ZERO,
+                                td.description);
+                        tx.setCreatedAt(td.createdAt != null ? td.createdAt : java.time.LocalDateTime.now());
+                        business.addTransaction(tx);
+                    }
+                }
+                group.addBusiness(business);
+            }
+        }
+
+        // 4. Restore Expenses
         for (GroupBackupDto.ExpenseBackupDto ed : dto.expenses) {
             Expense expense = new Expense();
             expense.setGroup(group);

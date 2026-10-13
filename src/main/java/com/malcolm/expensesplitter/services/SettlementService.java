@@ -38,6 +38,9 @@ public class SettlementService {
     @Autowired
     private com.malcolm.expensesplitter.config.AppConfig appConfig;
 
+    @Autowired
+    private InvestmentService investmentService;
+
     /**
      * Internal node representing a user's net balance.
      */
@@ -65,59 +68,71 @@ public class SettlementService {
      * @return A list of TransactionDto representing the simplified transactions.
      */
     public List<TransactionDto> calculateSimplifiedDebts(UUID groupId) {
+        Group group = groupRepository.findById(groupId).orElseThrow();
+        Map<UUID, BigDecimal> investmentBalances = investmentService.calculateNetBalances(group);
+        boolean useInvestmentLedger = group.isInvestmentEnabled() && !investmentBalances.isEmpty();
         List<Expense> expenses = expenseRepository.findByGroupIdOrderByCreatedAtDesc(groupId);
         Map<UUID, BigDecimal> balances = new HashMap<>();
 
-        for (Expense expense : expenses) {
-            BigDecimal totalExpenseAmount = expense.getAmount();
-            if (totalExpenseAmount.compareTo(BigDecimal.ZERO) <= 0)
-                continue;
-
-            String expenseCurrency = expense.getCurrency();
-            String baseCurrency = appConfig.getCurrencyCode();
-            BigDecimal rate = BigDecimal.ONE;
-            if (expenseCurrency != null && !expenseCurrency.isEmpty()
-                    && !expenseCurrency.equalsIgnoreCase(baseCurrency)) {
-                rate = exchangeRateService.getExchangeRate(expenseCurrency, baseCurrency);
-            }
-
-            // 1. Calculate how much of this expense is still unpaid across all members
-            BigDecimal totalUnpaidInExpense = BigDecimal.ZERO;
-            for (ExpenseSplit split : expense.getSplits()) {
-                BigDecimal unpaid = split.getOwedAmount().subtract(split.getPaidAmount());
-                if (unpaid.compareTo(BigDecimal.ZERO) > 0) {
-                    totalUnpaidInExpense = totalUnpaidInExpense.add(unpaid);
+        // When investment contributions/shares exist, they already represent the
+        // complete album-style settlement. Adding ordinary expense balances too
+        // would credit the person who paid the supplier a second time.
+        if (!useInvestmentLedger) {
+            for (Expense expense : expenses) {
+                BigDecimal totalExpenseAmount = expense.getAmount();
+                if (totalExpenseAmount == null || totalExpenseAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
                 }
-            }
 
-            // 2. Credit payers for their share of the *remaining* unpaid debt
-            // If the expense is 100, and 50 is unpaid, a payer who paid 100 gets 50 credit.
-            for (com.malcolm.expensesplitter.models.ExpensePayment payment : expense.getPayments()) {
-                UUID payerId = payment.getUser().getId();
-                BigDecimal payerContribution = payment.getAmount();
+                String expenseCurrency = expense.getCurrency();
+                String baseCurrency = appConfig.getCurrencyCode();
+                BigDecimal rate = BigDecimal.ONE;
+                if (expenseCurrency != null && !expenseCurrency.isEmpty()
+                        && !expenseCurrency.equalsIgnoreCase(baseCurrency)) {
+                    rate = exchangeRateService.getExchangeRate(expenseCurrency, baseCurrency);
+                }
 
-                // Payer's share of the remaining group credit
-                BigDecimal credit = totalUnpaidInExpense.multiply(payerContribution)
-                        .divide(totalExpenseAmount, 4, RoundingMode.HALF_UP);
+                // A split's paidAmount is the amount that member has already paid
+                // toward this expense. Preserve overpayments as positive balances
+                // instead of ignoring them when paidAmount exceeds owedAmount.
+                BigDecimal netOutstanding = BigDecimal.ZERO;
+                for (ExpenseSplit split : expense.getSplits()) {
+                    BigDecimal owed = split.getOwedAmount() == null ? BigDecimal.ZERO : split.getOwedAmount();
+                    BigDecimal paid = split.getPaidAmount() == null ? BigDecimal.ZERO : split.getPaidAmount();
+                    BigDecimal memberNet = paid.subtract(owed).multiply(rate);
+                    UUID memberId = split.getUser().getId();
+                    balances.merge(memberId, memberNet, BigDecimal::add);
+                    netOutstanding = netOutstanding.add(owed.subtract(paid));
+                }
 
-                credit = credit.multiply(rate);
+                // The expense payer(s) are owed only the remaining net amount.
+                // Allocate that credit by their share of the original expense.
+                // If the group has collectively overpaid, netOutstanding is
+                // negative, correctly making the original payer a debtor.
+                BigDecimal convertedOutstanding = netOutstanding.multiply(rate);
+                if (convertedOutstanding.compareTo(BigDecimal.ZERO) != 0) {
+                    BigDecimal totalRecordedPayments = expense.getPayments().stream()
+                            .map(payment -> payment.getAmount() == null ? BigDecimal.ZERO : payment.getAmount())
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal denominator = totalRecordedPayments.compareTo(BigDecimal.ZERO) > 0
+                            ? totalRecordedPayments : totalExpenseAmount;
 
-                balances.put(payerId, balances.getOrDefault(payerId, BigDecimal.ZERO).add(credit));
-            }
-
-            // 3. Debit members for their own *remaining* unpaid debt
-            for (ExpenseSplit split : expense.getSplits()) {
-                UUID debtorId = split.getUser().getId();
-                BigDecimal unpaid = split.getOwedAmount().subtract(split.getPaidAmount());
-
-                if (unpaid.compareTo(BigDecimal.ZERO) > 0) {
-                    unpaid = unpaid.multiply(rate);
-                    balances.put(debtorId, balances.getOrDefault(debtorId, BigDecimal.ZERO).subtract(unpaid));
+                    if (denominator.compareTo(BigDecimal.ZERO) > 0) {
+                        for (com.malcolm.expensesplitter.models.ExpensePayment payment : expense.getPayments()) {
+                            UUID payerId = payment.getUser().getId();
+                            BigDecimal payerShare = (payment.getAmount() == null ? BigDecimal.ZERO : payment.getAmount())
+                                    .divide(denominator, 8, RoundingMode.HALF_UP);
+                            BigDecimal payerCredit = convertedOutstanding.multiply(payerShare);
+                            balances.merge(payerId, payerCredit, BigDecimal::add);
+                        }
+                    }
                 }
             }
         }
 
-        Group group = groupRepository.findById(groupId).orElseThrow();
+        if (useInvestmentLedger) {
+            balances.putAll(investmentBalances);
+        }
         if (group.isFamilyGroupingEnabled()) {
             Map<String, BigDecimal> familyBalances = new HashMap<>();
             

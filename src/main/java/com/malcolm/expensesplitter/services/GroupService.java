@@ -93,6 +93,18 @@ public class GroupService {
         return groupRepository.save(group);
     }
 
+    public Group setInvestmentMode(UUID groupId, boolean enabled) {
+        Group group = groupRepository.findById(groupId).orElseThrow();
+        group.setInvestmentEnabled(enabled);
+        return groupRepository.save(group);
+    }
+
+    public Group toggleInvestmentMode(UUID groupId) {
+        Group group = groupRepository.findById(groupId).orElseThrow();
+        group.setInvestmentEnabled(!group.isInvestmentEnabled());
+        return groupRepository.save(group);
+    }
+
     public void updateMemberFamilyName(UUID userId, String familyName) {
         User user = userRepository.findById(userId).orElseThrow();
         user.setFamilyName(familyName);

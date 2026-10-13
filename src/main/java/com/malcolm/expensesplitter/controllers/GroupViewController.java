@@ -4,8 +4,12 @@ import com.malcolm.expensesplitter.config.AppConfig;
 import com.malcolm.expensesplitter.models.Expense;
 import com.malcolm.expensesplitter.models.Group;
 import com.malcolm.expensesplitter.models.User;
+import com.malcolm.expensesplitter.models.Business;
+import com.malcolm.expensesplitter.models.InvestmentTransaction;
+import com.malcolm.expensesplitter.models.InvestmentTransactionType;
 import com.malcolm.expensesplitter.services.ExpenseService;
 import com.malcolm.expensesplitter.services.GroupService;
+import com.malcolm.expensesplitter.services.InvestmentService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -28,8 +32,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
 
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.ChoiceDialog;
 import java.util.Optional;
 import java.util.UUID;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 /**
  * Controller for the Group View in the JavaFX application.
@@ -57,6 +64,9 @@ public class GroupViewController {
     @Autowired
     private ExportService exportService;
 
+    @Autowired
+    private InvestmentService investmentService;
+
     @FXML
     private Label groupNameLabel;
 
@@ -83,6 +93,15 @@ public class GroupViewController {
 
     @FXML
     private javafx.scene.control.ToggleButton familyGroupingToggle;
+
+    @FXML
+    private javafx.scene.control.ToggleButton investmentModeToggle;
+
+    @FXML
+    private javafx.scene.layout.VBox investmentSection;
+
+    @FXML
+    private Label investmentModeSummaryLabel;
 
     private Group currentGroup;
     private ObservableList<Expense> expensesObservable = FXCollections.observableArrayList();
@@ -162,8 +181,132 @@ public class GroupViewController {
             expensesObservable.setAll(expenseService.getGroupExpenses(groupId));
             membersObservable.setAll(currentGroup.getMembers());
             familyGroupingToggle.setSelected(currentGroup.isFamilyGroupingEnabled());
+            if (investmentModeToggle != null) {
+                investmentModeToggle.setSelected(currentGroup.isInvestmentEnabled());
+            }
+            updateInvestmentSection();
             updateBudgetDisplay();
         }
+    }
+
+    private void updateInvestmentSection() {
+        if (currentGroup == null || investmentSection == null || investmentModeToggle == null || investmentModeSummaryLabel == null) {
+            return;
+        }
+        boolean enabled = currentGroup.isInvestmentEnabled();
+        investmentSection.setVisible(enabled);
+        investmentSection.setManaged(enabled);
+        investmentModeToggle.setSelected(enabled);
+        investmentModeSummaryLabel.setText(enabled ? investmentSummary() :
+                "Investment mode is off for this group. Standard expense settlement remains unchanged.");
+    }
+
+    private String investmentSummary() {
+        Business business = currentGroup.getBusinesses() == null ? null
+                : currentGroup.getBusinesses().stream().findFirst().orElse(null);
+        if (business == null || business.getInvestments() == null || business.getInvestments().isEmpty()) {
+            return "Investment mode is enabled. Add each member payment as income/contribution, then use Reimburse Member for overpayments.";
+        }
+        BigDecimal contributions = business.getTransactions().stream()
+                .filter(t -> t.getType() == InvestmentTransactionType.CAPITAL_CONTRIBUTION)
+                .map(InvestmentTransaction::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal returned = business.getTransactions().stream()
+                .filter(t -> t.getType() == InvestmentTransactionType.CAPITAL_RETURN)
+                .map(InvestmentTransaction::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal shares = business.getInvestments().stream()
+                .map(investment -> investment.getExpectedShare()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        StringBuilder summary = new StringBuilder(String.format("Received: ₹%s | Reimbursed: ₹%s | Total shares: ₹%s\n",
+                appConfig.formatAmount(contributions), appConfig.formatAmount(returned), appConfig.formatAmount(shares)));
+        business.getInvestments().stream()
+                .sorted(java.util.Comparator.comparing(investment -> investment.getInvestor().getName()))
+                .forEach(investment -> {
+                    BigDecimal balance = investment.getOriginalInvestment()
+                            .subtract(investment.getExpectedShare())
+                            .subtract(investment.getCapitalReturned()).setScale(2, RoundingMode.HALF_UP);
+                    String sign = balance.signum() > 0 ? "+₹" : balance.signum() < 0 ? "-₹" : "₹";
+                    summary.append(investment.getInvestor().getName()).append(": paid ₹")
+                            .append(appConfig.formatAmount(investment.getOriginalInvestment()))
+                            .append(" | share ₹").append(appConfig.formatAmount(investment.getExpectedShare()))
+                            .append(" | balance ").append(sign).append(appConfig.formatAmount(balance.abs())).append("\n");
+                });
+        return summary.toString().trim();
+    }
+
+    @FXML
+    public void handleAddIncome() {
+        showInvestmentTransactionDialog();
+    }
+
+    private void showInvestmentTransactionDialog() {
+        if (currentGroup == null || currentGroup.getMembers().isEmpty()) {
+            return;
+        }
+
+        List<User> sortedMembers = currentGroup.getMembers().stream()
+                .sorted(java.util.Comparator.comparing(User::getName)).toList();
+        List<String> memberNames = sortedMembers.stream().map(User::getName).toList();
+        User currentlySelected = memberListView.getSelectionModel().getSelectedItem();
+        String selectedName = currentlySelected == null ? memberNames.get(0) : currentlySelected.getName();
+        ChoiceDialog<String> memberDialog = new ChoiceDialog<>(selectedName, memberNames);
+        memberDialog.setTitle("Add Income");
+        memberDialog.setHeaderText("Record money received from a member");
+        memberDialog.setContentText("Member:");
+        Optional<String> selectedMemberName = memberDialog.showAndWait();
+        if (selectedMemberName.isEmpty()) {
+            return;
+        }
+        User selectedMember = sortedMembers.stream()
+                .filter(member -> member.getName().equals(selectedMemberName.get())).findFirst().orElse(null);
+        if (selectedMember == null) {
+            return;
+        }
+
+        TextInputDialog amountDialog = new TextInputDialog();
+        amountDialog.setTitle("Add Income");
+        amountDialog.setHeaderText("Amount in INR");
+        amountDialog.setContentText("Amount:");
+        Optional<String> amountText = amountDialog.showAndWait();
+        if (amountText.isEmpty()) {
+            return;
+        }
+
+        try {
+            BigDecimal amount = new BigDecimal(amountText.get().trim()).setScale(2, RoundingMode.HALF_UP);
+            TextInputDialog shareDialog = new TextInputDialog();
+            shareDialog.setTitle("Member Share");
+            shareDialog.setHeaderText("Total share/owed amount for " + selectedMember.getName());
+            shareDialog.setContentText("Share (leave blank to keep the current share):");
+            Optional<String> shareText = shareDialog.showAndWait();
+            if (shareText.isEmpty()) {
+                return;
+            }
+            BigDecimal expectedShare = shareText.get().trim().isEmpty()
+                    ? null : new BigDecimal(shareText.get().trim()).setScale(2, RoundingMode.HALF_UP);
+            TextInputDialog descriptionDialog = new TextInputDialog("Album payment / advance");
+            descriptionDialog.setTitle("Add Income");
+            descriptionDialog.setHeaderText("Description (optional)");
+            descriptionDialog.setContentText("Description:");
+            Optional<String> description = descriptionDialog.showAndWait();
+            if (description.isEmpty()) {
+                return;
+            }
+
+            investmentService.recordIncome(currentGroup, selectedMember, amount, expectedShare, description.get());
+            currentGroup = groupService.getGroup(currentGroup.getId());
+            updateInvestmentSection();
+        } catch (NumberFormatException e) {
+            showInvestmentError("Please enter a valid amount (zero is allowed when recording a member share).");
+        } catch (IllegalArgumentException e) {
+            showInvestmentError(e.getMessage());
+        }
+    }
+
+    private void showInvestmentError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Investment transaction");
+        alert.setHeaderText("Transaction could not be saved");
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     private void updateBudgetDisplay() {
@@ -283,13 +426,26 @@ public class GroupViewController {
         if (currentGroup != null) {
             currentGroup = groupService.toggleFamilyGrouping(currentGroup.getId());
             familyGroupingToggle.setSelected(currentGroup.isFamilyGroupingEnabled());
-            // Optionally refresh view if needed, but settlements/export are the main users
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Family Grouping");
             alert.setHeaderText(null);
             alert.setContentText("Family grouping is now " + (currentGroup.isFamilyGroupingEnabled() ? "ENABLED" : "DISABLED") + " for this group.");
             alert.showAndWait();
         }
+    }
+
+    @FXML
+    public void handleToggleInvestmentMode() {
+        if (currentGroup == null || investmentModeToggle == null) {
+            return;
+        }
+        currentGroup = groupService.setInvestmentMode(currentGroup.getId(), investmentModeToggle.isSelected());
+        updateInvestmentSection();
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Investment Mode");
+        alert.setHeaderText(null);
+        alert.setContentText("Investment mode is now " + (currentGroup.isInvestmentEnabled() ? "ENABLED" : "DISABLED") + " for this group.");
+        alert.showAndWait();
     }
 
     @FXML

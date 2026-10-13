@@ -32,8 +32,22 @@
                     </HBox>
                 </VBox>
             </VBox>
-            <javafx.scene.control.ToggleButton fx:id="familyGroupingToggle" text="👨‍👩‍👧 Family Grouping" onAction="#handleToggleFamilyGrouping"/>
+            <HBox spacing="10.0" alignment="CENTER_RIGHT">
+                <javafx.scene.control.ToggleButton fx:id="familyGroupingToggle" text="👨‍👩‍👧 Family Grouping" onAction="#handleToggleFamilyGrouping"/>
+                <javafx.scene.control.ToggleButton fx:id="investmentModeToggle" text="💼 Investment Mode" onAction="#handleToggleInvestmentMode"/>
+            </HBox>
         </HBox>
+        
+        <VBox fx:id="investmentSection" spacing="8.0" visible="false" managed="false" style="-fx-background-color: -color-bg-subtle; -fx-background-radius: 8;">
+            <padding>
+                <Insets top="12.0" right="14.0" bottom="12.0" left="14.0"/>
+            </padding>
+            <Label text="Investment / Business" styleClass="title-3"/>
+            <Label fx:id="investmentModeSummaryLabel" text="Investment mode is off for this group." styleClass="text-muted" wrapText="true"/>
+            <HBox spacing="10.0">
+                <Button text="Add Income" onAction="#handleAddIncome" styleClass="success"/>
+            </HBox>
+        </VBox>
         
         <!-- Actions Row -->
         <HBox spacing="15.0" alignment="CENTER_RIGHT">
